@@ -1,4 +1,4 @@
-# sunod-telemetry
+# sunod-game-server
 
 Backend telemetry service for the Sunod game project.
 
