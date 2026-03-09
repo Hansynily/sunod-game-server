@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Sunod Telemetry – {{ user.username }} Performance</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        :root {
+            color-scheme: dark light;
+            --bg: #020617;
+            --border-subtle: #1f2937;
+            --accent: #22d3ee;
+            --accent-soft: rgba(34, 211, 238, 0.12);
+            --accent-strong: #22c55e;
+            --text-primary: #e5e7eb;
+            --text-muted: #6b7280;
+            --text-subtle: #9ca3af;
+            --danger: #f97373;
+        }
+
+        [data-theme="light"] {
+            --bg: #f3f6fb;
+            --border-subtle: #d6deea;
+            --accent: #0ea5e9;
+            --accent-soft: rgba(14, 165, 233, 0.12);
+            --accent-strong: #16a34a;
+            --text-primary: #0f172a;
+            --text-muted: #475569;
+            --text-subtle: #64748b;
+            --danger: #dc2626;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: radial-gradient(circle at top left, #0f172a 0, #020617 50%, #000 100%);
+            color: var(--text-primary);
+        }
+
+        [data-theme="light"] body {
+            background: radial-gradient(circle at top left, #ffffff 0, #eef3f9 55%, #e2e8f0 100%);
+        }
+
+        .app-shell {
+            display: grid;
+            grid-template-columns: 260px minmax(0, 1fr);
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            background: linear-gradient(180deg, #020617 0%, #020617 50%, #020617 100%);
+            border-right: 1px solid var(--border-subtle);
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .brand-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 999px;
+            background: radial-gradient(circle at 30% 30%, #22d3ee, #0ea5e9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
+        }
+
+        .brand-icon span {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .brand-text {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .brand-title {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .env-pill {
+            margin-top: 0.1rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.1rem 0.5rem;
+            border-radius: 999px;
+            background-color: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            font-size: 0.68rem;
+            color: var(--text-subtle);
+        }
+
+        .env-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 999px;
+            background-color: #22c55e;
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
+        }
+
+        .nav-section-label {
+            font-size: 0.7rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-subtle);
+            margin-bottom: 0.25rem;
+            padding-inline: 0.25rem;
+        }
+
+        .nav-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .nav-item {
+            border-radius: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            color: var(--text-subtle);
+            font-size: 0.9rem;
+            cursor: default;
+        }
+
+        .nav-item span.icon {
+            width: 22px;
+            height: 22px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(15, 23, 42, 0.9);
+            color: var(--text-subtle);
+            font-size: 0.9rem;
+        }
+
+        .nav-item.active {
+            background: radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.24), rgba(15, 23, 42, 0.95));
+            color: var(--text-primary);
+        }
+
+        .nav-item.active span.icon {
+            background-color: rgba(34, 211, 238, 0.16);
+            color: var(--accent);
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .main {
+            padding: 1.5rem 1.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+        }
+
+        .back-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.35rem 0.9rem;
+            border-radius: 999px;
+            border: 1px solid var(--border-subtle);
+            background-color: rgba(15, 23, 42, 0.95);
+            font-size: 0.8rem;
+            color: var(--text-subtle);
+            text-decoration: none;
+        }
+
+        .avatar-pill {
+            width: 32px;
+            height: 32px;
+            border-radius: 999px;
+            border: 1px solid var(--border-subtle);
+            background: radial-gradient(circle at 30% 0, rgba(34, 211, 238, 0.2), #020617);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            color: var(--text-subtle);
+        }
+
+        [data-theme="light"] .avatar-pill {
+            background: radial-gradient(circle at 30% 0, rgba(14, 165, 233, 0.2), #ffffff);
+        }
+
+        .topbar-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .inline-form {
+            margin: 0;
+            display: inline;
+        }
+
+        .theme-toggle {
+            border: 1px solid var(--border-subtle);
+            background: rgba(15, 23, 42, 0.95);
+            color: var(--text-subtle);
+            border-radius: 999px;
+            padding: 0.45rem 0.85rem;
+            font-size: 0.78rem;
+            cursor: pointer;
+        }
+
+        .theme-toggle:hover {
+            background: rgba(15, 23, 42, 0.85);
+            color: var(--text-primary);
+        }
+
+        [data-theme="light"] .theme-toggle {
+            background: #ffffff;
+        }
+
+        [data-theme="light"] .theme-toggle:hover {
+            background: #eef3f9;
+        }
+
+        .danger-button {
+            border: 1px solid rgba(248, 113, 113, 0.5);
+            background: rgba(127, 29, 29, 0.3);
+            color: var(--danger);
+            border-radius: 999px;
+            padding: 0.45rem 0.85rem;
+            font-size: 0.78rem;
+            cursor: pointer;
+        }
+
+        .danger-button:hover {
+            background: rgba(248, 113, 113, 0.15);
+        }
+
+        [data-theme="light"] .danger-button {
+            background: #fff1f2;
+        }
+
+        [data-theme="light"] .danger-button:hover {
+            background: #ffe4e6;
+        }
+
+        .page-header {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .page-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .page-meta {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .metric-card {
+            border-radius: 1rem;
+            padding: 1rem 1.1rem;
+            border: 1px solid rgba(15, 23, 42, 0.9);
+            background: radial-gradient(circle at top left, rgba(34, 211, 238, 0.1), #020617);
+        }
+
+        .metric-card:nth-child(2) {
+            background: radial-gradient(circle at top left, rgba(129, 140, 248, 0.16), #020617);
+        }
+
+        .metric-card:nth-child(3) {
+            background: radial-gradient(circle at top left, rgba(234, 179, 8, 0.16), #020617);
+        }
+
+        .metric-card:nth-child(4) {
+            background: radial-gradient(circle at top left, rgba(34, 197, 94, 0.16), #020617);
+        }
+
+        .metric-label {
+            font-size: 0.8rem;
+            color: var(--text-subtle);
+        }
+
+        .metric-value {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-top: 0.2rem;
+        }
+
+        .metric-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.15rem 0.55rem;
+            border-radius: 999px;
+            border: 1px solid rgba(34, 197, 94, 0.4);
+            background-color: rgba(22, 163, 74, 0.1);
+            color: var(--accent-strong);
+            font-size: 0.7rem;
+            margin-top: 0.3rem;
+        }
+
+        .metric-chip.danger {
+            border-color: rgba(248, 113, 113, 0.6);
+            background-color: rgba(248, 113, 113, 0.1);
+            color: var(--danger);
+        }
+
+        .section-card {
+            margin-top: 0.25rem;
+            border-radius: 1rem;
+            border: 1px solid var(--border-subtle);
+            background-color: rgba(15, 23, 42, 0.98);
+            padding: 1rem 1.1rem 1.2rem;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.85);
+        }
+
+        .section-title {
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 0.75rem;
+        }
+
+        .riasec-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .riasec-item {
+            padding: 0.6rem 0.7rem;
+            border-radius: 0.75rem;
+            border: 1px dashed rgba(51, 65, 85, 0.9);
+            background-color: rgba(15, 23, 42, 0.95);
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .riasec-label {
+            font-size: 0.78rem;
+            color: var(--text-subtle);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .riasec-value {
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .riasec-bar {
+            margin-top: 0.1rem;
+            height: 4px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, rgba(15, 23, 42, 1), rgba(34, 211, 238, 0.5));
+            overflow: hidden;
+        }
+
+        .riasec-bar span {
+            display: block;
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #22d3ee, #a855f7);
+            width: 100%;
+        }
+
+        .table-card {
+            margin-top: 0.5rem;
+            border-radius: 1rem;
+            border: 1px solid var(--border-subtle);
+            background-color: rgba(15, 23, 42, 0.98);
+            overflow: hidden;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.85);
+        }
+
+        [data-theme="light"] .sidebar {
+            background: linear-gradient(180deg, #ecf2fa 0%, #ecf2fa 50%, #e6edf7 100%);
+        }
+
+        [data-theme="light"] .nav-item.active {
+            background: linear-gradient(135deg, #dff3ff 0%, #edf4ff 100%);
+            color: #0f172a;
+        }
+
+        [data-theme="light"] .nav-item.active span.icon {
+            background-color: #ffffff;
+            color: #0284c7;
+        }
+
+        [data-theme="light"] .metric-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f1f8ff 100%);
+            border-color: #c9d7ea;
+        }
+
+        [data-theme="light"] .metric-card:nth-child(2) {
+            background: linear-gradient(135deg, #ffffff 0%, #f3f2ff 100%);
+        }
+
+        [data-theme="light"] .metric-card:nth-child(3) {
+            background: linear-gradient(135deg, #ffffff 0%, #fff8eb 100%);
+        }
+
+        [data-theme="light"] .metric-card:nth-child(4) {
+            background: linear-gradient(135deg, #ffffff 0%, #eefaf2 100%);
+        }
+
+        [data-theme="light"] .back-pill,
+        [data-theme="light"] .filter-pill,
+        [data-theme="light"] .skills-pill span,
+        [data-theme="light"] .riasec-item,
+        [data-theme="light"] .section-card,
+        [data-theme="light"] .table-card {
+            background-color: #ffffff;
+        }
+
+        [data-theme="light"] .section-card,
+        [data-theme="light"] .table-card {
+            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+        }
+
+        [data-theme="light"] .riasec-bar {
+            background: linear-gradient(90deg, #e2e8f0, #cfe8ff);
+        }
+
+        [data-theme="light"] .riasec-bar span {
+            background: linear-gradient(90deg, #38bdf8, #60a5fa);
+        }
+
+        [data-theme="light"] tbody tr:nth-child(even) td {
+            background-color: #f8fafc;
+        }
+
+        [data-theme="light"] tbody tr:hover td {
+            background-color: #e8f4ff;
+        }
+
+        .table-header-row {
+            padding: 0.75rem 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(15, 23, 42, 0.9);
+            font-size: 0.8rem;
+            color: var(--text-subtle);
+        }
+
+        .filter-pill {
+            padding: 0.35rem 0.8rem;
+            border-radius: 999px;
+            border: 1px solid var(--border-subtle);
+            background-color: rgba(15, 23, 42, 0.95);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.78rem;
+        }
+
+        .filter-pill span.dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 999px;
+            background-color: var(--accent);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 0.72rem 1.1rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(15, 23, 42, 0.95);
+            font-size: 0.8rem;
+        }
+
+        th {
+            font-weight: 500;
+            color: var(--text-subtle);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 0.7rem;
+        }
+
+        tbody tr:nth-child(even) td {
+            background-color: rgba(15, 23, 42, 0.95);
+        }
+
+        tbody tr:hover td {
+            background-color: rgba(30, 64, 175, 0.45);
+        }
+
+        .cell-muted {
+            color: var(--text-muted);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 70px;
+            padding: 0.18rem 0.65rem;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .badge-success {
+            background-color: rgba(34, 197, 94, 0.12);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.4);
+        }
+
+        .badge-failure {
+            background-color: rgba(248, 113, 113, 0.12);
+            color: #fca5a5;
+            border: 1px solid rgba(248, 113, 113, 0.4);
+        }
+
+        .skills-pill {
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+        }
+
+        .skills-pill span {
+            padding: 0.12rem 0.55rem;
+            border-radius: 999px;
+            background-color: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(51, 65, 85, 0.9);
+            font-size: 0.72rem;
+            color: var(--text-subtle);
+        }
+
+        @media (max-width: 960px) {
+            .app-shell {
+                grid-template-columns: 72px minmax(0, 1fr);
+            }
+
+            .sidebar {
+                padding-inline: 0.5rem;
+                align-items: center;
+            }
+
+            .brand-text,
+            .nav-section-label,
+            .sidebar-footer {
+                display: none;
+            }
+
+            .nav-item {
+                justify-content: center;
+                padding-inline: 0.25rem;
+            }
+
+            .nav-item span:not(.icon) {
+                display: none;
+            }
+
+            .main {
+                padding-inline: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-icon">
+                <span>ST</span>
+            </div>
+            <div class="brand-text">
+                <span class="brand-title">Sunod Telemetry</span>
+                <div class="env-pill">
+                    <span class="env-dot"></span>
+                    <span>Local / Development</span>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="nav-section-label">Navigation</div>
+            <ul class="nav-list">
+                <li class="nav-item">
+                    <span class="icon">🏠</span>
+                    <span>Dashboard</span>
+                </li>
+                <li class="nav-item active">
+                    <span class="icon">👥</span>
+                    <span>Users</span>
+                </li>
+            </ul>
+        </div>
+
+        <div class="sidebar-footer">
+            <div>Game telemetry admin</div>
+            <div>FastAPI · MongoDB</div>
+        </div>
+    </aside>
+
+    <main class="main">
+        <div class="topbar">
+            <a href="/admin/users" class="back-pill">⬅ Back to Players</a>
+            <div class="topbar-actions">
+                <form class="inline-form" method="post" action="/admin/users/{{ user.id }}/delete" onsubmit="return confirm('Delete this user and all telemetry records? This cannot be undone.');">
+                    <button type="submit" class="danger-button">Delete User</button>
+                </form>
+                <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle theme">Light mode</button>
+                <div class="avatar-pill">{{ user.username[0]|upper if user.username else "P" }}</div>
+            </div>
+        </div>
+
+        <section class="page-header">
+            <div class="page-title">{{ user.username }}</div>
+            <div class="page-meta">
+                ID: USR-{{ "%03d"|format(user.id) }}
+                · Email: {{ user.email or "n/a" }}
+                · Created: {{ user.created_at }}
+                · Last Login: {{ user.last_login or "n/a" }}
+            </div>
+        </section>
+
+        <section class="metrics-row">
+            <article class="metric-card">
+                <div class="metric-label">Total Attempts</div>
+                <div class="metric-value">{{ summary.total_attempts }}</div>
+            </article>
+            <article class="metric-card">
+                <div class="metric-label">Success Rate</div>
+                <div class="metric-value">{{ '%.0f'|format(summary.success_rate) }}%</div>
+            </article>
+            <article class="metric-card">
+                <div class="metric-label">Avg Time / Attempt</div>
+                <div class="metric-value">{{ '%.0f'|format(summary.avg_time_seconds) }}s</div>
+            </article>
+            <article class="metric-card">
+                <div class="metric-label">Last Result</div>
+                <div class="metric-value">{{ summary.last_result }}</div>
+                {% if summary.last_result|lower == "success" %}
+                    <div class="metric-chip">● Success</div>
+                {% elif summary.last_result == "N/A" %}
+                    <div class="metric-chip">No attempts yet</div>
+                {% else %}
+                    <div class="metric-chip danger">● Failure</div>
+                {% endif %}
+            </article>
+        </section>
+
+        <section class="section-card">
+            <div class="section-title">RIASEC Profile</div>
+            <div class="riasec-grid">
+                <div class="riasec-item">
+                    <div class="riasec-label">Realistic (R)</div>
+                    <div class="riasec-value">{{ '%.0f'|format(riasec.realistic) }}</div>
+                    <div class="riasec-bar"><span></span></div>
+                </div>
+                <div class="riasec-item">
+                    <div class="riasec-label">Investigative (I)</div>
+                    <div class="riasec-value">{{ '%.0f'|format(riasec.investigative) }}</div>
+                    <div class="riasec-bar"><span></span></div>
+                </div>
+                <div class="riasec-item">
+                    <div class="riasec-label">Artistic (A)</div>
+                    <div class="riasec-value">{{ '%.0f'|format(riasec.artistic) }}</div>
+                    <div class="riasec-bar"><span></span></div>
+                </div>
+                <div class="riasec-item">
+                    <div class="riasec-label">Social (S)</div>
+                    <div class="riasec-value">{{ '%.0f'|format(riasec.social) }}</div>
+                    <div class="riasec-bar"><span></span></div>
+                </div>
+                <div class="riasec-item">
+                    <div class="riasec-label">Enterprising (E)</div>
+                    <div class="riasec-value">{{ '%.0f'|format(riasec.enterprising) }}</div>
+                    <div class="riasec-bar"><span></span></div>
+                </div>
+                <div class="riasec-item">
+                    <div class="riasec-label">Conventional (C)</div>
+                    <div class="riasec-value">{{ '%.0f'|format(riasec.conventional) }}</div>
+                    <div class="riasec-bar"><span></span></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="table-card">
+            <div class="table-header-row">
+                <div>Quest Attempts</div>
+                <div class="filter-pill">
+                    <span class="dot"></span>
+                    <span>All Results</span>
+                </div>
+            </div>
+            <table>
+                <thead>
+                <tr>
+                    <th>Quest ID</th>
+                    <th>Quest Name</th>
+                    <th>Started At</th>
+                    <th>Completed At</th>
+                    <th>Result</th>
+                    <th>Time (s)</th>
+                    <th>Skills Used</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% if attempts %}
+                    {% for attempt in attempts %}
+                        <tr>
+                            <td class="cell-muted">Q-{{ attempt.id }}</td>
+                            <td>{{ attempt.quest_name }}</td>
+                            <td class="cell-muted">{{ attempt.started_at }}</td>
+                            <td class="cell-muted">{{ attempt.completed_at or "n/a" }}</td>
+                            <td>
+                                {% if attempt.success == 1 %}
+                                    <span class="badge badge-success">Success</span>
+                                {% else %}
+                                    <span class="badge badge-failure">Failure</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ attempt.time_spent_seconds }}</td>
+                            <td>
+                                <div class="skills-pill">
+                                    {% if attempt.skills_used %}
+                                        {% for skill in attempt.skills_used %}
+                                            <span>{{ skill.skill_name }}</span>
+                                        {% endfor %}
+                                    {% else %}
+                                        <span class="cell-muted">n/a</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="7" class="cell-muted" style="text-align: center; padding: 1rem;">
+                            No quest attempts recorded for this player yet.
+                        </td>
+                    </tr>
+                {% endif %}
+                </tbody>
+            </table>
+        </section>
+    </main>
+</div>
+<script>
+    (function () {
+        const root = document.documentElement;
+        const toggle = document.getElementById("theme-toggle");
+        const key = "sunod_theme";
+
+        function applyTheme(theme) {
+            root.setAttribute("data-theme", theme);
+            if (toggle) {
+                toggle.textContent = theme === "light" ? "Dark mode" : "Light mode";
+            }
+        }
+
+        const saved = localStorage.getItem(key);
+        const initialTheme = saved || "dark";
+        applyTheme(initialTheme);
+
+        if (toggle) {
+            toggle.addEventListener("click", function () {
+                const nextTheme = root.getAttribute("data-theme") === "light" ? "dark" : "light";
+                applyTheme(nextTheme);
+                localStorage.setItem(key, nextTheme);
+            });
+        }
+    })();
+</script>
+</body>
+</html>
+

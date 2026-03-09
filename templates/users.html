@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Sunod Telemetry – Players</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        :root {
+            color-scheme: dark light;
+            --bg: #020617;
+            --bg-elevated: #020617;
+            --bg-elevated-soft: #020617;
+            --bg-sidebar: #020617;
+            --bg-card: #020617;
+            --border-subtle: #1f2937;
+            --accent: #22d3ee;
+            --accent-soft: rgba(34, 211, 238, 0.1);
+            --accent-strong: #22c55e;
+            --text-primary: #e5e7eb;
+            --text-muted: #6b7280;
+            --text-subtle: #9ca3af;
+            --danger: #f97373;
+        }
+
+        [data-theme="light"] {
+            --bg: #f3f6fb;
+            --bg-elevated: #ffffff;
+            --bg-elevated-soft: #eef3f9;
+            --bg-sidebar: #ecf2fa;
+            --bg-card: #ffffff;
+            --border-subtle: #d6deea;
+            --accent: #0ea5e9;
+            --accent-soft: rgba(14, 165, 233, 0.12);
+            --accent-strong: #16a34a;
+            --text-primary: #0f172a;
+            --text-muted: #475569;
+            --text-subtle: #64748b;
+            --danger: #dc2626;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: radial-gradient(circle at top left, #0f172a 0, #020617 50%, #000 100%);
+            color: var(--text-primary);
+        }
+
+        [data-theme="light"] body {
+            background: radial-gradient(circle at top left, #ffffff 0, #eef3f9 55%, #e2e8f0 100%);
+        }
+
+        .app-shell {
+            display: grid;
+            grid-template-columns: 260px minmax(0, 1fr);
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            background: linear-gradient(180deg, #020617 0%, #020617 50%, #020617 100%);
+            border-right: 1px solid var(--border-subtle);
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .brand-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 999px;
+            background: radial-gradient(circle at 30% 30%, #22d3ee, #0ea5e9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
+        }
+
+        .brand-icon span {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .brand-text {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .brand-title {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .env-pill {
+            margin-top: 0.1rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.1rem 0.5rem;
+            border-radius: 999px;
+            background-color: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            font-size: 0.68rem;
+            color: var(--text-subtle);
+        }
+
+        .env-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 999px;
+            background-color: #22c55e;
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
+        }
+
+        .nav-section-label {
+            font-size: 0.7rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-subtle);
+            margin-bottom: 0.25rem;
+            padding-inline: 0.25rem;
+        }
+
+        .nav-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .nav-item {
+            border-radius: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            color: var(--text-subtle);
+            font-size: 0.9rem;
+            cursor: default;
+        }
+
+        .nav-item span.icon {
+            width: 22px;
+            height: 22px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(15, 23, 42, 0.9);
+            color: var(--text-subtle);
+            font-size: 0.9rem;
+        }
+
+        .nav-item.active {
+            background: radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.24), rgba(15, 23, 42, 0.95));
+            color: var(--text-primary);
+        }
+
+        .nav-item.active span.icon {
+            background-color: rgba(34, 211, 238, 0.16);
+            color: var(--accent);
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .main {
+            padding: 1.5rem 1.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.75rem;
+        }
+
+        .avatar-pill {
+            width: 32px;
+            height: 32px;
+            border-radius: 999px;
+            border: 1px solid var(--border-subtle);
+            background: radial-gradient(circle at 30% 0, rgba(34, 211, 238, 0.2), #020617);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            color: var(--text-subtle);
+        }
+
+        [data-theme="light"] .avatar-pill {
+            background: radial-gradient(circle at 30% 0, rgba(14, 165, 233, 0.2), #ffffff);
+        }
+
+        .theme-toggle {
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-elevated);
+            color: var(--text-subtle);
+            border-radius: 999px;
+            padding: 0.45rem 0.85rem;
+            font-size: 0.78rem;
+            cursor: pointer;
+        }
+
+        .theme-toggle:hover {
+            background: var(--bg-elevated-soft);
+            color: var(--text-primary);
+        }
+
+        .page-header {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .page-header h1 {
+            font-size: 1.35rem;
+            margin: 0;
+        }
+
+        .page-header p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .cards-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+
+        .stat-card {
+            border-radius: 1rem;
+            background: radial-gradient(circle at top left, rgba(34, 211, 238, 0.15), #020617);
+            border: 1px solid rgba(15, 23, 42, 0.9);
+            padding: 1rem 1.1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card:nth-child(2) {
+            background: radial-gradient(circle at top left, rgba(129, 140, 248, 0.18), #020617);
+        }
+
+        .stat-card:nth-child(3) {
+            background: radial-gradient(circle at top left, rgba(34, 197, 94, 0.18), #020617);
+        }
+
+        .stat-label {
+            font-size: 0.78rem;
+            color: var(--text-subtle);
+        }
+
+        .stat-value {
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+
+        .stat-sub {
+            font-size: 0.78rem;
+            color: var(--accent-strong);
+        }
+
+        .stat-icon {
+            position: absolute;
+            top: 0.9rem;
+            right: 0.9rem;
+            width: 26px;
+            height: 26px;
+            border-radius: 999px;
+            background-color: rgba(15, 23, 42, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            color: var(--accent);
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-top: 0.25rem;
+        }
+
+        .search-box {
+            flex: 1;
+            max-width: 380px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 0.6rem 0.8rem 0.6rem 2.1rem;
+            border-radius: 999px;
+            border: 1px solid var(--border-subtle);
+            background-color: rgba(15, 23, 42, 0.9);
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            outline: none;
+        }
+
+        .search-box input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 0.8rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.85rem;
+            color: var(--text-subtle);
+        }
+
+        .filter-pill {
+            padding: 0.5rem 0.9rem;
+            border-radius: 999px;
+            border: 1px solid var(--border-subtle);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.8rem;
+            color: var(--text-subtle);
+            background-color: rgba(15, 23, 42, 0.9);
+            cursor: default;
+        }
+
+        .filter-pill span.dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 999px;
+            background-color: var(--accent);
+        }
+
+        .table-card {
+            margin-top: 0.3rem;
+            border-radius: 1rem;
+            border: 1px solid var(--border-subtle);
+            background-color: rgba(15, 23, 42, 0.98);
+            overflow: hidden;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.85);
+        }
+
+        [data-theme="light"] .sidebar {
+            background: linear-gradient(180deg, #ecf2fa 0%, #ecf2fa 50%, #e6edf7 100%);
+        }
+
+        [data-theme="light"] .nav-item.active {
+            background: linear-gradient(135deg, #dff3ff 0%, #edf4ff 100%);
+            color: #0f172a;
+        }
+
+        [data-theme="light"] .nav-item.active span.icon {
+            background-color: #ffffff;
+            color: #0284c7;
+        }
+
+        [data-theme="light"] .stat-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f1f8ff 100%);
+            border-color: #c9d7ea;
+        }
+
+        [data-theme="light"] .stat-card:nth-child(2) {
+            background: linear-gradient(135deg, #ffffff 0%, #f3f2ff 100%);
+        }
+
+        [data-theme="light"] .stat-card:nth-child(3) {
+            background: linear-gradient(135deg, #ffffff 0%, #eefaf2 100%);
+        }
+
+        [data-theme="light"] .stat-icon {
+            background-color: #ffffff;
+        }
+
+        [data-theme="light"] .nav-item span.icon,
+        [data-theme="light"] .filter-pill,
+        [data-theme="light"] .search-box input,
+        [data-theme="light"] .pill-link {
+            background-color: #ffffff;
+        }
+
+        [data-theme="light"] .table-card {
+            background-color: #ffffff;
+            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+        }
+
+        [data-theme="light"] thead {
+            background: linear-gradient(180deg, #f8fbff 0%, #eff5fb 100%);
+        }
+
+        [data-theme="light"] tbody tr:nth-child(even) td {
+            background-color: #f8fafc;
+        }
+
+        [data-theme="light"] tbody tr:hover td {
+            background-color: #e8f4ff;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: linear-gradient(180deg, #020617 0%, #020617 100%);
+        }
+
+        th,
+        td {
+            padding: 0.72rem 1.1rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(15, 23, 42, 0.95);
+            font-size: 0.82rem;
+        }
+
+        th {
+            font-weight: 500;
+            color: var(--text-subtle);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 0.7rem;
+        }
+
+        tbody tr:nth-child(even) td {
+            background-color: rgba(15, 23, 42, 0.95);
+        }
+
+        tbody tr:hover td {
+            background-color: rgba(30, 64, 175, 0.45);
+        }
+
+        .cell-muted {
+            color: var(--text-muted);
+        }
+
+        .pill-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid rgba(34, 211, 238, 0.3);
+            font-size: 0.78rem;
+            color: var(--accent);
+            text-decoration: none;
+            background-color: rgba(15, 23, 42, 0.8);
+        }
+
+        .pill-link:hover {
+            background-color: rgba(34, 211, 238, 0.12);
+        }
+
+        .actions-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            flex-wrap: wrap;
+        }
+
+        .danger-pill {
+            border-color: rgba(248, 113, 113, 0.5);
+            color: var(--danger);
+        }
+
+        .danger-pill:hover {
+            background-color: rgba(248, 113, 113, 0.12);
+        }
+
+        .inline-form {
+            margin: 0;
+            display: inline;
+        }
+
+        .empty-row td {
+            text-align: center;
+            padding: 1.2rem;
+            color: var(--text-muted);
+        }
+
+        @media (max-width: 960px) {
+            .app-shell {
+                grid-template-columns: 72px minmax(0, 1fr);
+            }
+
+            .sidebar {
+                padding-inline: 0.5rem;
+                align-items: center;
+            }
+
+            .brand-text,
+            .nav-section-label,
+            .sidebar-footer {
+                display: none;
+            }
+
+            .nav-item {
+                justify-content: center;
+                padding-inline: 0.25rem;
+            }
+
+            .nav-item span:not(.icon) {
+                display: none;
+            }
+
+            .main {
+                padding-inline: 1rem;
+            }
+
+            .toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .search-box {
+                max-width: 100%;
+            }
+
+            thead {
+                display: none;
+            }
+
+            table,
+            tbody,
+            tr,
+            td {
+                display: block;
+                width: 100%;
+            }
+
+            tr {
+                border-bottom: 1px solid rgba(15, 23, 42, 0.9);
+            }
+
+            td {
+                display: flex;
+                justify-content: space-between;
+                gap: 1rem;
+                padding-inline: 0.9rem;
+            }
+
+            td::before {
+                content: attr(data-label);
+                font-size: 0.72rem;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                color: var(--text-subtle);
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-icon">
+                <span>ST</span>
+            </div>
+            <div class="brand-text">
+                <span class="brand-title">Sunod Telemetry</span>
+                <div class="env-pill">
+                    <span class="env-dot"></span>
+                    <span>Local / Development</span>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="nav-section-label">Navigation</div>
+            <ul class="nav-list">
+                <li class="nav-item">
+                    <span class="icon">🏠</span>
+                    <span>Dashboard</span>
+                </li>
+                <li class="nav-item active">
+                    <span class="icon">👥</span>
+                    <span>Users</span>
+                </li>
+            </ul>
+        </div>
+
+        <div class="sidebar-footer">
+            <div>Game telemetry admin</div>
+            <div>FastAPI · MongoDB</div>
+        </div>
+    </aside>
+
+    <main class="main">
+        <div class="topbar">
+            <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle theme">Light mode</button>
+            <div class="avatar-pill">A</div>
+        </div>
+
+        <section class="page-header">
+            <h1>Players</h1>
+            <p>Overview of all players and their quest activity.</p>
+        </section>
+
+        {% set stats = namespace(total_players=0, total_attempts=0) %}
+        {% if users %}
+            {% set stats.total_players = users | length %}
+            {% for u in users %}
+                {% set stats.total_attempts = stats.total_attempts + (u.quest_attempts | length) %}
+            {% endfor %}
+        {% endif %}
+
+        <section class="cards-row">
+            <article class="stat-card">
+                <div class="stat-icon">👥</div>
+                <div class="stat-label">Total Players</div>
+                <div class="stat-value">{{ stats.total_players }}</div>
+            </article>
+
+            <article class="stat-card">
+                <div class="stat-icon">🎯</div>
+                <div class="stat-label">Total Quest Attempts</div>
+                <div class="stat-value">{{ stats.total_attempts }}</div>
+            </article>
+
+            <article class="stat-card">
+                <div class="stat-icon">📈</div>
+                <div class="stat-label">Avg Attempts / Player</div>
+                <div class="stat-value">
+                    {% if stats.total_players > 0 %}
+                        {{ '%.1f' | format(stats.total_attempts / stats.total_players) }}
+                    {% else %}
+                        0.0
+                    {% endif %}
+                </div>
+                <div class="stat-sub">Telemetry overview for current data</div>
+            </article>
+        </section>
+
+        <section class="toolbar">
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input id="user-search" type="search" placeholder="Search by username or email..." />
+            </div>
+            <div class="filter-pill">
+                <span class="dot"></span>
+                <span>Most active</span>
+            </div>
+        </section>
+
+        <section class="table-card">
+            <table id="users-table">
+                <thead>
+                <tr>
+                    <th>User ID</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Created At</th>
+                    <th>Last Login</th>
+                    <th>Total Attempts</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% if users %}
+                    {% for user in users %}
+                        {% set attempts_count = user.quest_attempts | length %}
+                        <tr class="user-row">
+                            <td data-label="User ID" class="cell-muted">USR-{{ "%03d"|format(user.id) }}</td>
+                            <td data-label="Username">{{ user.username }}</td>
+                            <td data-label="Email" class="cell-muted">{{ user.email or "-" }}</td>
+                            <td data-label="Created At" class="cell-muted">{{ user.created_at }}</td>
+                            <td data-label="Last Login" class="cell-muted">{{ user.last_login or "-" }}</td>
+                            <td data-label="Total Attempts">{{ attempts_count }}</td>
+                            <td data-label="Actions">
+                                <div class="actions-group">
+                                    <a href="/admin/users/{{ user.id }}" class="pill-link">
+                                        <span>View performance</span>
+                                    </a>
+                                    <form class="inline-form" method="post" action="/admin/users/{{ user.id }}/delete" onsubmit="return confirm('Delete this user and all telemetry records? This cannot be undone.');">
+                                        <button type="submit" class="pill-link danger-pill">Delete</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr class="empty-row">
+                        <td colspan="7">No users found yet. Once the game sends telemetry, players will appear here.</td>
+                    </tr>
+                {% endif %}
+                </tbody>
+            </table>
+        </section>
+    </main>
+</div>
+
+<script>
+    (function () {
+        const root = document.documentElement;
+        const toggle = document.getElementById("theme-toggle");
+        const key = "sunod_theme";
+
+        function applyTheme(theme) {
+            root.setAttribute("data-theme", theme);
+            if (toggle) {
+                toggle.textContent = theme === "light" ? "Dark mode" : "Light mode";
+            }
+        }
+
+        const saved = localStorage.getItem(key);
+        const initialTheme = saved || "dark";
+        applyTheme(initialTheme);
+
+        if (toggle) {
+            toggle.addEventListener("click", function () {
+                const nextTheme = root.getAttribute("data-theme") === "light" ? "dark" : "light";
+                applyTheme(nextTheme);
+                localStorage.setItem(key, nextTheme);
+            });
+        }
+
+        const input = document.getElementById("user-search");
+        const rows = Array.from(document.querySelectorAll("#users-table tbody tr.user-row"));
+
+        if (!input || !rows.length) return;
+
+        input.addEventListener("input", function () {
+            const query = this.value.toLowerCase().trim();
+
+            rows.forEach((row) => {
+                const username = row.cells[1]?.textContent.toLowerCase() || "";
+                const email = row.cells[2]?.textContent.toLowerCase() || "";
+                const match = !query || username.includes(query) || email.includes(query);
+                row.style.display = match ? "" : "none";
+            });
+        });
+    })();
+</script>
+</body>
+</html>
+
