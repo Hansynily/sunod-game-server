@@ -26,14 +26,6 @@ This project uses `MongoDB` as its database.
 
 - `NoSQL` is the database category or model
 - `MongoDB` is the specific NoSQL database used in this project
-- `PostgreSQL` is an SQL database and is no longer used in this codebase
-
-In short:
-
-```text
-Requirement: use NoSQL
-Chosen solution: MongoDB
-```
 
 Application flow:
 
@@ -75,11 +67,19 @@ The app reads these variables from environment:
 
 ## Run Locally
 
+On Windows, if MongoDB is already running, you can use:
+
+```bat
+launch_server.bat
+```
+
+Manual way:
+
 ### 1. Clone and enter the repo
 
 ```bash
-git clone https://github.com/Hansynily/sunod-telemetry.git
-cd sunod-telemetry
+git clone https://github.com/Hansynily/sunod-game-server.git
+cd sunod-game-server
 ```
 
 ### 2. Create and activate virtual environment
@@ -109,12 +109,6 @@ pip install -r requirements.txt
 Make sure your local MongoDB service is running. The app will use the `telemetry_db`
 database by default and create its collections and indexes automatically.
 
-Important:
-
-- You do not need a separate generic "NoSQL app"
-- You do not need to open MongoDB Compass for the backend to work
-- You only need the MongoDB server/service running on `127.0.0.1:27017`
-- If MongoDB is already running, you can start the backend immediately
 
 ### 5. Set environment variables
 
@@ -136,12 +130,6 @@ set MONGODB_DB=telemetry_db
 
 ```bash
 py -m uvicorn app.main:app --reload
-```
-
-Or on Windows, if MongoDB is already running, you can use:
-
-```bat
-launch_server.bat
 ```
 
 On startup, the app pings MongoDB and ensures the required indexes exist.
