@@ -1,14 +1,20 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
 from app.database import close_db, init_db
+from app.ml_runtime import warm_load_model
 from app.routers import telemetry
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
+    warm_load_model(logger=LOGGER)
     try:
         yield
     finally:

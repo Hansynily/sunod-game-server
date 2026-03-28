@@ -16,6 +16,7 @@ class TelemetryRepository:
     def __init__(self, database: Database):
         self.database = database
         self.users = database["users"]
+        self.session_runs = database["session_runs"]
         self.counters = database["counters"]
 
     def ping(self) -> None:
@@ -43,10 +44,60 @@ class TelemetryRepository:
             [("created_at", DESCENDING)],
             name="users_created_at_idx",
         )
+        self.session_runs.create_index(
+            [("session_id", ASCENDING)],
+            name="session_runs_session_id_idx",
+        )
+        self.session_runs.create_index(
+            [("created_at", DESCENDING)],
+            name="session_runs_created_at_idx",
+        )
 
     def list_users(self) -> list[models.User]:
         documents = self.users.find().sort("created_at", DESCENDING)
         return [self._build_user(document) for document in documents]
+
+    def list_session_run_overview_by_player(self) -> dict[str, dict[str, Any]]:
+        documents = self.session_runs.find(
+            {},
+            {
+                "player_id": 1,
+                "created_at": 1,
+                "source": 1,
+                "career_result": 1,
+                "career_family": 1,
+                "holland_code": 1,
+            },
+        ).sort("created_at", DESCENDING)
+
+        overview_by_player: dict[str, dict[str, Any]] = {}
+        for document in documents:
+            player_id = document.get("player_id")
+            if not player_id:
+                continue
+
+            overview = overview_by_player.get(player_id)
+            if overview is None:
+                overview = {
+                    "total_runs": 0,
+                    "last_run_at": document.get("created_at"),
+                    "last_source": document.get("source"),
+                    "last_result": document.get("career_result"),
+                    "last_career_family": document.get("career_family"),
+                    "last_holland_code": document.get("holland_code"),
+                }
+                overview_by_player[player_id] = overview
+
+            overview["total_runs"] += 1
+
+        return overview_by_player
+
+    def list_session_runs_for_player(self, player_id: str) -> list[dict[str, Any]]:
+        documents = self.session_runs.find({"player_id": player_id}).sort(
+            "created_at",
+            DESCENDING,
+        )
+        return list(documents)
 
     def find_user_by_id(self, user_id: int) -> models.User | None:
         document = self.users.find_one({"id": user_id})
@@ -59,6 +110,12 @@ class TelemetryRepository:
         if not document:
             return None
         return self._build_user(document)
+
+    def resolve_user_id_by_player_id(self, player_id: str) -> int | None:
+        document = self.users.find_one({"player_id": player_id}, {"id": 1})
+        if not document:
+            return None
+        return int(document["id"])
 
     def find_user_by_username(self, username: str) -> models.User | None:
         document = self.users.find_one({"username": username})
@@ -219,8 +276,62 @@ class TelemetryRepository:
         return self._build_quest_attempt(attempt_document)
 
     def delete_user(self, user_id: int) -> bool:
+        user_document = self.users.find_one({"id": user_id}, {"player_id": 1})
+        if not user_document:
+            return False
+
         result = self.users.delete_one({"id": user_id})
+        if result.deleted_count != 1:
+            return False
+
+        player_id = user_document.get("player_id")
+        delete_filter: dict[str, Any] = {"user_id": user_id}
+        if player_id:
+            delete_filter = {"$or": [{"user_id": user_id}, {"player_id": player_id}]}
+
+        self.session_runs.delete_many(delete_filter)
         return result.deleted_count == 1
+
+    def add_session_run(
+        self,
+        *,
+        player_id: str,
+        username: str,
+        session_id: str,
+        scene_version: str,
+        total_time_spent_seconds: float,
+        rounds: list[dict[str, Any]],
+        aggregated_features: dict[str, float | int],
+        riasec_scores: dict[str, int],
+        holland_code: str,
+        career_family: str,
+        career_result: str,
+        source: str,
+        model_version: str,
+    ) -> dict[str, Any]:
+        document: dict[str, Any] = {
+            "player_id": player_id,
+            "username": username,
+            "session_id": session_id,
+            "scene_version": scene_version,
+            "total_time_spent_seconds": total_time_spent_seconds,
+            "rounds": rounds,
+            "aggregated_features": aggregated_features,
+            "riasec_scores": riasec_scores,
+            "holland_code": holland_code,
+            "career_family": career_family,
+            "career_result": career_result,
+            "source": source,
+            "model_version": model_version,
+            "created_at": datetime.utcnow(),
+        }
+
+        user_id = self.resolve_user_id_by_player_id(player_id)
+        if user_id is not None:
+            document["user_id"] = user_id
+
+        self.session_runs.insert_one(document)
+        return document
 
     def _next_sequence(self, name: str) -> int:
         document = self.counters.find_one_and_update(
