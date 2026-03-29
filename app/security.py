@@ -1,12 +1,31 @@
 import base64
+from dataclasses import dataclass
 import hashlib
 import hmac
+import json
+import os
 import secrets
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from app.database import get_db
+from app.repository import TelemetryRepository
 
 
 _ALGORITHM = "pbkdf2_sha256"
 _ITERATIONS = 390000
 _SALT_BYTES = 16
+_TOKEN_SECRET = os.getenv("AUTH_TOKEN_SECRET", "sunod-auth-secret-change-me")
+_TOKEN_SCHEME = HTTPBearer(auto_error=False)
+ADMIN_SESSION_COOKIE = "sunod_admin_session"
+
+
+@dataclass(frozen=True, slots=True)
+class AuthenticatedPrincipal:
+    user_id: int
+    username: str
+    role: str
 
 
 def hash_password(password: str) -> str:
@@ -53,6 +72,138 @@ def verify_password(password: str, stored_hash: str | None) -> bool:
         iterations,
     )
     return hmac.compare_digest(candidate_digest, expected_digest)
+
+
+def create_access_token(*, user_id: int, username: str, role: str) -> str:
+    payload = {
+        "user_id": user_id,
+        "username": username,
+        "role": role,
+    }
+    payload_bytes = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    signature = hmac.new(
+        _TOKEN_SECRET.encode("utf-8"),
+        payload_bytes,
+        hashlib.sha256,
+    ).digest()
+    return f"{_encode_bytes(payload_bytes)}.{_encode_bytes(signature)}"
+
+
+def parse_access_token(token: str) -> AuthenticatedPrincipal:
+    try:
+        payload_text, signature_text = token.split(".", 1)
+    except ValueError as exc:
+        raise ValueError("Invalid access token.") from exc
+
+    try:
+        payload_bytes = _decode_bytes(payload_text)
+        signature = _decode_bytes(signature_text)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Invalid access token.") from exc
+
+    expected_signature = hmac.new(
+        _TOKEN_SECRET.encode("utf-8"),
+        payload_bytes,
+        hashlib.sha256,
+    ).digest()
+    if not hmac.compare_digest(signature, expected_signature):
+        raise ValueError("Invalid access token.")
+
+    try:
+        payload = json.loads(payload_bytes.decode("utf-8"))
+        user_id = int(payload["user_id"])
+        username = str(payload["username"]).strip()
+        role = str(payload["role"]).strip()
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise ValueError("Invalid access token.") from exc
+
+    if not username or role not in {"admin", "user"}:
+        raise ValueError("Invalid access token.")
+
+    return AuthenticatedPrincipal(
+        user_id=user_id,
+        username=username,
+        role=role,
+    )
+
+
+def get_current_principal(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_TOKEN_SCHEME),
+) -> AuthenticatedPrincipal:
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required.",
+        )
+
+    try:
+        return parse_access_token(credentials.credentials)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+        ) from exc
+
+
+def get_optional_principal(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_TOKEN_SCHEME),
+) -> AuthenticatedPrincipal | None:
+    if credentials is None:
+        return None
+
+    if credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required.",
+        )
+
+    try:
+        return parse_access_token(credentials.credentials)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+        ) from exc
+
+
+def get_current_user(
+    principal: AuthenticatedPrincipal = Depends(get_current_principal),
+    db: TelemetryRepository = Depends(get_db),
+):
+    user = db.find_user_by_id(principal.user_id)
+    if user is None or user.username != principal.username:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authenticated user not found.",
+        )
+    return user
+
+
+def get_optional_user(
+    principal: AuthenticatedPrincipal | None = Depends(get_optional_principal),
+    db: TelemetryRepository = Depends(get_db),
+):
+    if principal is None:
+        return None
+
+    user = db.find_user_by_id(principal.user_id)
+    if user is None or user.username != principal.username:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authenticated user not found.",
+        )
+    return user
+
+
+def require_admin(
+    user = Depends(get_current_user),
+):
+    if user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required.",
+        )
+    return user
 
 
 def _encode_bytes(value: bytes) -> str:

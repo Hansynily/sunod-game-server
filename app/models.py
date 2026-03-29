@@ -44,6 +44,7 @@ class User:
     username: str
     email: str | None
     created_at: datetime
+    role: str = "user"
     password_hash: str | None = None
     last_login: datetime | None = None
     quest_attempts: list[QuestAttempt] = field(default_factory=list)

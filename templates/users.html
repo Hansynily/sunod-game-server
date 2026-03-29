@@ -230,6 +230,28 @@
             white-space: nowrap;
         }
 
+        .role-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.7rem;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            font-size: 0.78rem;
+            white-space: nowrap;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .role-pill.admin {
+            color: var(--positive);
+            background: rgba(34, 197, 94, 0.08);
+        }
+
+        .role-pill.user {
+            color: var(--muted);
+            background: rgba(148, 163, 184, 0.08);
+        }
+
         .actions {
             display: inline-flex;
             gap: 0.55rem;
@@ -309,8 +331,11 @@
 <body>
 <div class="shell">
     <div class="topbar">
+        <form method="post" action="/admin/logout">
+            <button class="theme-toggle" type="submit">Logout {{ current_user.username }}</button>
+        </form>
         <button id="theme-toggle" class="theme-toggle" type="button">Light mode</button>
-        <div class="avatar">A</div>
+        <div class="avatar">{{ current_user.username[0]|upper if current_user.username else "A" }}</div>
     </div>
 
     <section class="header">
@@ -362,6 +387,7 @@
                 <th>User ID</th>
                 <th>Username</th>
                 <th>Email</th>
+                <th>Role</th>
                 <th>Created At</th>
                 <th>Last Login</th>
                 <th>Total Runs</th>
@@ -376,6 +402,9 @@
                         <td data-label="User ID" class="muted">USR-{{ "%03d"|format(user.user_id) }}</td>
                         <td data-label="Username">{{ user.username }}</td>
                         <td data-label="Email" class="muted">{{ user.email or "-" }}</td>
+                        <td data-label="Role">
+                            <span class="role-pill {{ user.role }}">{{ user.role }}</span>
+                        </td>
                         <td data-label="Created At" class="muted">{{ user.created_at }}</td>
                         <td data-label="Last Login" class="muted">{{ user.last_login or "-" }}</td>
                         <td data-label="Total Runs">{{ user.total_runs }}</td>
@@ -394,7 +423,7 @@
                 {% endfor %}
             {% else %}
                 <tr>
-                    <td colspan="8" class="empty">No users found yet. Once the game sends run-complete telemetry, players will appear here.</td>
+                    <td colspan="9" class="empty">No users found yet. Once the game sends run-complete telemetry, players will appear here.</td>
                 </tr>
             {% endif %}
             </tbody>
@@ -413,7 +442,7 @@
             toggle.textContent = theme === "light" ? "Dark mode" : "Light mode";
         }
 
-        applyTheme(localStorage.getItem(key) || "dark");
+        applyTheme(localStorage.getItem(key) || "light");
 
         toggle.addEventListener("click", function () {
             const next = root.getAttribute("data-theme") === "light" ? "dark" : "light";

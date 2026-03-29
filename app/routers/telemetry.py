@@ -3,19 +3,32 @@ import logging
 from typing import Any
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from app import career_mapping, feature_pipeline, ml_runtime, rubric, schemas
 from app.database import get_db
 from app.repository import DuplicateUserError, TelemetryRepository
-from app.security import hash_password, verify_password
+from app.security import (
+    ADMIN_SESSION_COOKIE,
+    create_access_token,
+    get_current_user,
+    get_optional_user,
+    parse_access_token,
+    hash_password,
+    require_admin,
+    verify_password,
+)
 
 
 LOGGER = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/telemetry", tags=["telemetry"])
-admin_router = APIRouter(prefix="/api/admin", tags=["admin"])
+admin_router = APIRouter(
+    prefix="/api/admin",
+    tags=["admin"],
+    dependencies=[Depends(require_admin)],
+)
 admin_ui_router = APIRouter(prefix="/admin", tags=["admin-ui"])
 
 templates = Jinja2Templates(directory="templates")
@@ -29,6 +42,12 @@ def _build_auth_response(user) -> schemas.AuthResponse:
         email=user.email,
         created_at=user.created_at,
         last_login=user.last_login,
+        role=user.role,
+        access_token=create_access_token(
+            user_id=user.id,
+            username=user.username,
+            role=user.role,
+        ),
     )
 
 
@@ -57,6 +76,24 @@ def _build_run_complete_message(
     if detail:
         message += f" {detail}"
     return message
+
+
+def _build_runtime_status_response() -> schemas.RuntimeStatusOut:
+    runtime_status = ml_runtime.get_model_status()
+    if runtime_status.available:
+        return schemas.RuntimeStatusOut(
+            rf_model_loaded=True,
+            active_source="RF Model",
+            active_version=runtime_status.model_version or "rf_v1",
+            detail="Runtime model loaded and ready.",
+        )
+
+    return schemas.RuntimeStatusOut(
+        rf_model_loaded=False,
+        active_source="Backend Rubric Fallback",
+        active_version="rubric_v1",
+        detail=runtime_status.reason or "Runtime model unavailable.",
+    )
 
 
 def _empty_admin_riasec_scores() -> dict[str, int]:
@@ -120,6 +157,7 @@ def _build_admin_user_rows(
                 "email": user.email,
                 "created_at": user.created_at,
                 "last_login": user.last_login,
+                "role": user.role,
                 "total_runs": int(overview.get("total_runs", 0) or 0),
                 "last_run_at": overview.get("last_run_at"),
                 "last_source": overview.get("last_source"),
@@ -177,18 +215,84 @@ def _build_user_performance_payload(
     }
 
 
+def _dashboard_url_for_user(user) -> str:
+    if user.role == "admin":
+        return "/admin/users"
+    return f"/admin/users/{user.id}"
+
+
+def _current_ui_user(
+    request: Request,
+    db: TelemetryRepository,
+):
+    token = request.cookies.get(ADMIN_SESSION_COOKIE)
+    if not token:
+        return None
+
+    try:
+        principal = parse_access_token(token)
+    except ValueError:
+        return None
+
+    user = db.find_user_by_id(principal.user_id)
+    if user is None or user.username != principal.username:
+        return None
+
+    return user
+
+
+def _require_ui_user(
+    request: Request,
+    db: TelemetryRepository,
+):
+    user = _current_ui_user(request, db)
+    if user is not None:
+        return user
+
+    raise HTTPException(
+        status_code=status.HTTP_303_SEE_OTHER,
+        detail="Login required.",
+        headers={"Location": "/admin/login"},
+    )
+
+
+def _require_admin_ui_user(
+    request: Request,
+    db: TelemetryRepository,
+):
+    user = _require_ui_user(request, db)
+    if user.role == "admin":
+        return user
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Admin access required.",
+    )
+
+
 @router.post("/users", response_model=schemas.AuthResponse, status_code=status.HTTP_201_CREATED)
 def create_user(
     user_in: schemas.UserCreate,
+    current_user = Depends(get_optional_user),
     db: TelemetryRepository = Depends(get_db),
 ):
     username = user_in.username.strip()
     password_hash = hash_password(user_in.password)
+    requested_role = user_in.role
+    assigned_role = "user"
     if not username:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username cannot be empty.",
         )
+
+    if requested_role == "admin":
+        if current_user is None or current_user.role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin access required to create an admin account.",
+            )
+        assigned_role = "admin"
 
     try:
         user = db.create_user(
@@ -196,6 +300,7 @@ def create_user(
             username=username,
             password_hash=password_hash,
             email=None,
+            role=assigned_role,
             riasec_profile=(
                 user_in.riasec_profile.model_dump() if user_in.riasec_profile else None
             ),
@@ -207,6 +312,8 @@ def create_user(
             password_hash=password_hash,
         )
         if upgraded_user:
+            if upgraded_user.role != assigned_role:
+                upgraded_user = db.set_user_role(upgraded_user.id, assigned_role) or upgraded_user
             return _build_auth_response(upgraded_user)
 
         raise HTTPException(
@@ -252,6 +359,27 @@ def login_user(
 
 @router.get("/users/{user_id}", response_model=schemas.User)
 def get_user(user_id: int, db: TelemetryRepository = Depends(get_db)):
+    user = db.find_user_by_id(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
+        )
+    return user
+
+
+@router.get("/users/{user_id}/profile", response_model=schemas.User)
+def get_user_profile(
+    user_id: int,
+    current_user = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only access your own profile.",
+        )
+
     user = db.find_user_by_id(user_id)
     if not user:
         raise HTTPException(
@@ -452,26 +580,20 @@ def create_run_complete_telemetry(
     )
 
 
+@router.get(
+    "/runtime-status",
+    response_model=schemas.RuntimeStatusOut,
+)
+def runtime_status():
+    return _build_runtime_status_response()
+
+
 @admin_router.get(
     "/runtime-status",
     response_model=schemas.RuntimeStatusOut,
 )
 def admin_runtime_status():
-    runtime_status = ml_runtime.get_model_status()
-    if runtime_status.available:
-        return schemas.RuntimeStatusOut(
-            rf_model_loaded=True,
-            active_source="RF Model",
-            active_version=runtime_status.model_version or "rf_v1",
-            detail="Runtime model loaded and ready.",
-        )
-
-    return schemas.RuntimeStatusOut(
-        rf_model_loaded=False,
-        active_source="Backend Rubric Fallback",
-        active_version="rubric_v1",
-        detail=runtime_status.reason or "Runtime model unavailable.",
-    )
+    return _build_runtime_status_response()
 
 
 @admin_router.get(
@@ -522,11 +644,143 @@ def admin_get_user_performance(
     return schemas.UserPerformance(**payload)
 
 
+@admin_router.post(
+    "/users/{user_id}/make-admin",
+    response_model=schemas.AdminUser,
+)
+def admin_make_user_admin(user_id: int, db: TelemetryRepository = Depends(get_db)):
+    user = db.set_user_role(user_id, "admin")
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
+        )
+
+    row = _build_admin_user_rows([user], db.list_session_run_overview_by_player())[0]
+    return schemas.AdminUser(**row)
+
+
+@admin_router.post(
+    "/users/{user_id}/make-user",
+    response_model=schemas.AdminUser,
+)
+def admin_make_user_standard(user_id: int, db: TelemetryRepository = Depends(get_db)):
+    user = db.set_user_role(user_id, "user")
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
+        )
+
+    row = _build_admin_user_rows([user], db.list_session_run_overview_by_player())[0]
+    return schemas.AdminUser(**row)
+
+
+@admin_ui_router.get(
+    "",
+    response_class=HTMLResponse,
+)
+@admin_ui_router.get(
+    "/",
+    response_class=HTMLResponse,
+)
+def admin_root(request: Request, db: TelemetryRepository = Depends(get_db)):
+    user = _current_ui_user(request, db)
+    if user is None:
+        return RedirectResponse(url="/admin/login", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url=_dashboard_url_for_user(user), status_code=status.HTTP_303_SEE_OTHER)
+
+
+@admin_ui_router.get(
+    "/login",
+    response_class=HTMLResponse,
+)
+def admin_login_page(
+    request: Request,
+    db: TelemetryRepository = Depends(get_db),
+):
+    current_user = _current_ui_user(request, db)
+    if current_user is not None:
+        return RedirectResponse(
+            url=_dashboard_url_for_user(current_user),
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    return templates.TemplateResponse(
+        "admin_login.html",
+        {
+            "request": request,
+            "error_message": None,
+        },
+    )
+
+
+@admin_ui_router.post("/login")
+def admin_login_submit(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    db: TelemetryRepository = Depends(get_db),
+):
+    normalized_username = username.strip()
+    if not normalized_username:
+        return templates.TemplateResponse(
+            "admin_login.html",
+            {
+                "request": request,
+                "error_message": "Username cannot be empty.",
+            },
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    user = db.find_user_by_username(normalized_username)
+    if user is None or not user.password_hash or not verify_password(password, user.password_hash):
+        return templates.TemplateResponse(
+            "admin_login.html",
+            {
+                "request": request,
+                "error_message": "Invalid username or password.",
+            },
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    updated_user = db.touch_last_login(user.id) or user
+    response = RedirectResponse(
+        url=_dashboard_url_for_user(updated_user),
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+    response.set_cookie(
+        key=ADMIN_SESSION_COOKIE,
+        value=create_access_token(
+            user_id=updated_user.id,
+            username=updated_user.username,
+            role=updated_user.role,
+        ),
+        httponly=True,
+        samesite="lax",
+    )
+    return response
+
+
+@admin_ui_router.post("/logout")
+def admin_logout():
+    response = RedirectResponse(url="/admin/login", status_code=status.HTTP_303_SEE_OTHER)
+    response.delete_cookie(ADMIN_SESSION_COOKIE)
+    return response
+
+
 @admin_ui_router.get(
     "/users",
     response_class=HTMLResponse,
 )
 def admin_users_page(request: Request, db: TelemetryRepository = Depends(get_db)):
+    current_user = _require_ui_user(request, db)
+    if current_user.role != "admin":
+        return RedirectResponse(
+            url=f"/admin/users/{current_user.id}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
     users = _build_admin_user_rows(
         db.list_users(),
         db.list_session_run_overview_by_player(),
@@ -535,6 +789,7 @@ def admin_users_page(request: Request, db: TelemetryRepository = Depends(get_db)
         "users.html",
         {
             "request": request,
+            "current_user": current_user,
             "users": users,
         },
     )
@@ -549,6 +804,13 @@ def admin_user_performance_page(
     request: Request,
     db: TelemetryRepository = Depends(get_db),
 ):
+    current_user = _require_ui_user(request, db)
+    if current_user.role != "admin" and current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only access your own dashboard.",
+        )
+
     user = db.find_user_by_id(user_id)
     if not user:
         raise HTTPException(
@@ -579,7 +841,9 @@ def admin_user_performance_page(
         "user_performance.html",
         {
             "request": request,
+            "current_user": current_user,
             "user": user,
+            "can_manage_user": current_user.role == "admin",
             "runs": performance["runs"],
             "riasec": performance["latest_riasec"],
             "summary": summary,
@@ -587,8 +851,47 @@ def admin_user_performance_page(
     )
 
 
+@admin_ui_router.post("/users/{user_id}/make-admin")
+def admin_make_user_admin_page(
+    user_id: int,
+    request: Request,
+    db: TelemetryRepository = Depends(get_db),
+):
+    _require_admin_ui_user(request, db)
+    user = db.set_user_role(user_id, "admin")
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
+        )
+
+    return RedirectResponse(url=f"/admin/users/{user_id}", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@admin_ui_router.post("/users/{user_id}/make-user")
+def admin_make_user_standard_page(
+    user_id: int,
+    request: Request,
+    db: TelemetryRepository = Depends(get_db),
+):
+    _require_admin_ui_user(request, db)
+    user = db.set_user_role(user_id, "user")
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
+        )
+
+    return RedirectResponse(url=f"/admin/users/{user_id}", status_code=status.HTTP_303_SEE_OTHER)
+
+
 @admin_ui_router.post("/users/{user_id}/delete")
-def admin_delete_user(user_id: int, db: TelemetryRepository = Depends(get_db)):
+def admin_delete_user(
+    user_id: int,
+    request: Request,
+    db: TelemetryRepository = Depends(get_db),
+):
+    _require_admin_ui_user(request, db)
     deleted = db.delete_user(user_id)
     if not deleted:
         raise HTTPException(

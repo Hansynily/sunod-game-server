@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Sunod Telemetry - Dashboard Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        :root {
+            color-scheme: dark light;
+            --bg: #eef4fb;
+            --bg-grad-a: #ffffff;
+            --bg-grad-b: #eef4fb;
+            --bg-grad-c: #dfe9f5;
+            --panel: #ffffff;
+            --border: #d5e0ee;
+            --text: #0f172a;
+            --muted: #64748b;
+            --accent: #0ea5e9;
+            --danger: #dc2626;
+            --field: #f8fbff;
+            --toggle-bg: #ffffff;
+            --toggle-fg: #64748b;
+            --toggle-active: #e2e8f0;
+        }
+
+        [data-theme="dark"] {
+            --bg: #020617;
+            --bg-grad-a: #0f172a;
+            --bg-grad-b: #020617;
+            --bg-grad-c: #000000;
+            --panel: rgba(15, 23, 42, 0.96);
+            --border: #1f2937;
+            --text: #e5e7eb;
+            --muted: #94a3b8;
+            --accent: #38bdf8;
+            --danger: #f87171;
+            --field: rgba(15, 23, 42, 0.65);
+            --toggle-bg: rgba(15, 23, 42, 0.96);
+            --toggle-fg: #94a3b8;
+            --toggle-active: #1e293b;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: radial-gradient(circle at top left, var(--bg-grad-a) 0, var(--bg-grad-b) 55%, var(--bg-grad-c) 100%);
+            color: var(--text);
+            padding: 1.5rem;
+        }
+
+        .page-shell {
+            width: min(100%, 460px);
+            margin: auto;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 0.9rem;
+        }
+
+        .theme-toggle {
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--toggle-bg);
+            color: var(--toggle-fg);
+            padding: 0.55rem 0.95rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .card {
+            width: 100%;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 1.4rem;
+            padding: 1.4rem;
+            box-shadow: 0 18px 36px rgba(15, 23, 42, 0.25);
+        }
+
+        h1 {
+            margin: 0 0 0.4rem;
+            font-size: 1.9rem;
+        }
+
+        p {
+            margin: 0 0 1.1rem;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.45rem;
+            font-size: 0.85rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        input {
+            width: 100%;
+            padding: 0.85rem 0.95rem;
+            border-radius: 0.95rem;
+            border: 1px solid var(--border);
+            background: var(--field);
+            color: var(--text);
+            margin-bottom: 1rem;
+            outline: none;
+        }
+
+        .submit-button {
+            width: 100%;
+            padding: 0.9rem 1rem;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            background: var(--accent);
+            color: #08111d;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .error {
+            margin-bottom: 1rem;
+            border: 1px solid rgba(248, 113, 113, 0.35);
+            background: rgba(248, 113, 113, 0.08);
+            color: var(--danger);
+            border-radius: 0.95rem;
+            padding: 0.8rem 0.9rem;
+        }
+    </style>
+</head>
+<body>
+<div class="page-shell">
+    <div class="topbar">
+        <button id="theme-toggle" class="theme-toggle" type="button">Dark mode</button>
+    </div>
+
+    <section class="card">
+        <h1>Dashboard Login</h1>
+        <p>Sign in to the SUNOD dashboard. Admins can manage all players, while standard users go straight to their own profile.</p>
+
+        {% if error_message %}
+            <div class="error">{{ error_message }}</div>
+        {% endif %}
+
+        <form method="post" action="/admin/login">
+            <label for="username">Username</label>
+            <input id="username" name="username" type="text" autocomplete="username" required />
+
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" required />
+
+            <button class="submit-button" type="submit">Enter Dashboard</button>
+        </form>
+    </section>
+</div>
+
+<script>
+    (function () {
+        const root = document.documentElement;
+        const toggle = document.getElementById("theme-toggle");
+        const key = "sunod_theme";
+
+        function applyTheme(theme) {
+            root.setAttribute("data-theme", theme);
+            toggle.textContent = theme === "light" ? "Dark mode" : "Light mode";
+        }
+
+        applyTheme(localStorage.getItem(key) || "light");
+
+        toggle.addEventListener("click", function () {
+            const next = root.getAttribute("data-theme") === "light" ? "dark" : "light";
+            applyTheme(next);
+            localStorage.setItem(key, next);
+        });
+    })();
+</script>
+</body>
+</html>

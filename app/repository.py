@@ -130,6 +130,7 @@ class TelemetryRepository:
         username: str,
         password_hash: str,
         email: str | None,
+        role: str = "user",
         riasec_profile: dict[str, float] | None = None,
     ) -> models.User:
         filters: list[dict[str, Any]] = [{"username": username}]
@@ -148,6 +149,7 @@ class TelemetryRepository:
             "username": username,
             "email": email,
             "created_at": now,
+            "role": role,
             "password_hash": password_hash,
             "last_login": now,
             "quest_attempts": [],
@@ -182,6 +184,16 @@ class TelemetryRepository:
             return None
         return self._build_user(updated_document)
 
+    def set_user_role(self, user_id: int, role: str) -> models.User | None:
+        updated_document = self.users.find_one_and_update(
+            {"id": user_id},
+            {"$set": {"role": role}},
+            return_document=ReturnDocument.AFTER,
+        )
+        if not updated_document:
+            return None
+        return self._build_user(updated_document)
+
     def upgrade_legacy_user_password(
         self,
         *,
@@ -201,6 +213,7 @@ class TelemetryRepository:
                 "$set": {
                     "password_hash": password_hash,
                     "last_login": datetime.utcnow(),
+                    "role": "user",
                 }
             },
             return_document=ReturnDocument.AFTER,
@@ -360,6 +373,7 @@ class TelemetryRepository:
             username=document["username"],
             email=document.get("email"),
             created_at=document["created_at"],
+            role=document.get("role", "user"),
             password_hash=document.get("password_hash"),
             last_login=document.get("last_login"),
             quest_attempts=attempts,
