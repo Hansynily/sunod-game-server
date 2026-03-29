@@ -55,15 +55,19 @@ requirements.txt
 ## Prerequisites
 
 - Python 3.10+ (recommended)
-- MongoDB running locally (default: port 27017)
+- MongoDB running locally on the URI you put in `.env`
 
 ## Environment Variables
 
-The app reads these variables from environment:
+The app requires these variables. For local development, create `Project/sunod-game-server/.env`:
 
-- `MONGODB_URI` (default: `mongodb://127.0.0.1:27017`)
-- `MONGODB_DB` (default: `telemetry_db`)
-- `MONGODB_TIMEOUT_MS` (default: `3000`)
+```env
+MONGODB_URI=mongodb://127.0.0.1:27017
+MONGODB_DB=telemetry_db
+MONGODB_TIMEOUT_MS=5000
+```
+
+`HOST` and `PORT` are optional. If omitted, the server listens on `0.0.0.0:8000`.
 
 ## Run Locally
 
@@ -106,30 +110,22 @@ pip install -r requirements.txt
 
 ### 4. Start MongoDB
 
-Make sure your local MongoDB service is running. The app will use the `telemetry_db`
-database by default and create its collections and indexes automatically.
+Make sure your local MongoDB service is running. The app will use the database from
+`.env` and create its collections and indexes automatically.
 
 
-### 5. Set environment variables
+### 5. Create `.env`
 
-PowerShell:
-
-```powershell
-$env:MONGODB_URI="mongodb://127.0.0.1:27017"
-$env:MONGODB_DB="telemetry_db"
-```
-
-CMD:
-
-```cmd
-set MONGODB_URI=mongodb://127.0.0.1:27017
-set MONGODB_DB=telemetry_db
+```env
+MONGODB_URI=mongodb://127.0.0.1:27017
+MONGODB_DB=telemetry_db
+MONGODB_TIMEOUT_MS=5000
 ```
 
 ### 6. Start the server
 
 ```bash
-py -m uvicorn app.main:app --reload
+py run_server.py
 ```
 
 On startup, the app pings MongoDB and ensures the required indexes exist.

@@ -1,0 +1,3 @@
+Resolved app.main -> F:\Users\HAN\Desktop\Thesis\SUNOD\Project\sunod-game-server\app\main.py
+Backend root -> F:\Users\HAN\Desktop\Thesis\SUNOD\Project\sunod-game-server
+INFO:     127.0.0.1:59830 - "GET /api/admin/runtime-status HTTP/1.1" 200 OK

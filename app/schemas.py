@@ -1,6 +1,10 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+
+UserRole = Literal["admin", "user"]
 
 
 class SkillUsedBase(BaseModel):
@@ -65,11 +69,13 @@ class UserRIASECProfile(UserRIASECProfileBase):
 class UserBase(BaseModel):
     username: str = Field(..., max_length=50)
     email: EmailStr | None = None
+    role: UserRole = "user"
 
 
 class UserCreate(BaseModel):
     username: str = Field(..., max_length=50)
     password: str = Field(..., min_length=6, max_length=128)
+    role: UserRole = "user"
     riasec_profile: UserRIASECProfileCreate | None = None
 
 
@@ -96,6 +102,9 @@ class AuthResponse(BaseModel):
     email: EmailStr | None = None
     created_at: datetime
     last_login: datetime | None = None
+    role: UserRole
+    access_token: str
+    token_type: str = "bearer"
 
 
 class SelectedSkill(BaseModel):
@@ -199,6 +208,7 @@ class AdminUser(BaseModel):
     email: EmailStr | None = None
     created_at: datetime
     last_login: datetime | None = None
+    role: UserRole
     total_runs: int
     last_run_at: datetime | None = None
     last_source: str | None = None

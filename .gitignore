@@ -1,4 +1,10 @@
 launch_server.bat
+.env
 /app/__pycache__
 /app/routers/__pycache__
 /ml
+/__pycache__
+/app/__pycache__
+/app/__pycache__
+/app/__pycache__
+ensure_public_port_8000.ps1

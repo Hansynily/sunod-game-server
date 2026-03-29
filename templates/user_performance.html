@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>Sunod Telemetry - {{ user.username }} Performance</title>
+    <title>Sunod Telemetry - {{ user.username }} Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
         :root {
@@ -70,7 +70,8 @@
 
         .theme-toggle,
         .back-link,
-        .delete-button {
+        .delete-button,
+        .role-button {
             border: 1px solid var(--border);
             border-radius: 999px;
             background: var(--bg-panel);
@@ -84,6 +85,10 @@
         .delete-button {
             color: var(--danger);
             border-color: rgba(248, 113, 113, 0.4);
+        }
+
+        .role-button {
+            color: var(--accent-strong);
         }
 
         .avatar {
@@ -369,10 +374,28 @@
 <body>
 <div class="shell">
     <div class="topbar">
-        <a href="/admin/users" class="back-link">Back to Players</a>
+        {% if can_manage_user %}
+            <a href="/admin/users" class="back-link">Back to Players</a>
+        {% else %}
+            <span class="back-link">My Dashboard</span>
+        {% endif %}
         <div class="topbar-actions">
-            <form method="post" action="/admin/users/{{ user.id }}/delete" onsubmit="return confirm('Delete this user and all telemetry records? This cannot be undone.');">
-                <button type="submit" class="delete-button">Delete User</button>
+            {% if can_manage_user %}
+                {% if user.role == "admin" %}
+                    <form method="post" action="/admin/users/{{ user.id }}/make-user">
+                        <button type="submit" class="role-button">Make User</button>
+                    </form>
+                {% else %}
+                    <form method="post" action="/admin/users/{{ user.id }}/make-admin">
+                        <button type="submit" class="role-button">Make Admin</button>
+                    </form>
+                {% endif %}
+                <form method="post" action="/admin/users/{{ user.id }}/delete" onsubmit="return confirm('Delete this user and all telemetry records? This cannot be undone.');">
+                    <button type="submit" class="delete-button">Delete User</button>
+                </form>
+            {% endif %}
+            <form method="post" action="/admin/logout">
+                <button type="submit" class="theme-toggle">Logout {{ current_user.username }}</button>
             </form>
             <button id="theme-toggle" class="theme-toggle" type="button">Light mode</button>
             <div class="avatar">{{ user.username[0]|upper if user.username else "P" }}</div>
@@ -383,11 +406,26 @@
         <h1>{{ user.username }}</h1>
         <p>
             ID: USR-{{ "%03d"|format(user.id) }}
+            | Email: {{ user.email or "n/a" }}
+            | Role: {{ user.role }}
+            | Created: {{ user.created_at }}
+            | Last Login: {{ user.last_login or "n/a" }}
+        </p>
+    </section>
+
+    <!--
+    <section class="header">
+        <h1>{{ user.username }}</h1>
+        <p>
+            ID: USR-{{ "%03d"|format(user.id) }}
             · Email: {{ user.email or "n/a" }}
+            · Role: {{ user.role }}
             · Created: {{ user.created_at }}
             · Last Login: {{ user.last_login or "n/a" }}
         </p>
     </section>
+
+    -->
 
     <section class="cards">
         <article class="card">
@@ -521,7 +559,7 @@
             toggle.textContent = theme === "light" ? "Dark mode" : "Light mode";
         }
 
-        applyTheme(localStorage.getItem(key) || "dark");
+        applyTheme(localStorage.getItem(key) || "light");
 
         toggle.addEventListener("click", function () {
             const next = root.getAttribute("data-theme") === "light" ? "dark" : "light";

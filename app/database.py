@@ -1,26 +1,58 @@
 import os
+from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 from typing import Generator
 
+from dotenv import load_dotenv
 from pymongo import MongoClient
 from pymongo.database import Database
 
 from .repository import TelemetryRepository
 
-
-MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://127.0.0.1:27017")
-MONGODB_DB = os.getenv("MONGODB_DB", "telemetry_db")
-MONGODB_TIMEOUT_MS = int(os.getenv("MONGODB_TIMEOUT_MS", "3000"))
+ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(ENV_FILE)
 
 _client: MongoClient | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class MongoSettings:
+    uri: str
+    database: str
+    timeout_ms: int
+
+
+def _require_env(name: str) -> str:
+    value = (os.getenv(name) or "").strip()
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
+@lru_cache(maxsize=1)
+def get_mongo_settings() -> MongoSettings:
+    timeout_raw = _require_env("MONGODB_TIMEOUT_MS")
+    try:
+        timeout_ms = int(timeout_raw)
+    except ValueError as exc:
+        raise RuntimeError("MONGODB_TIMEOUT_MS must be an integer.") from exc
+
+    return MongoSettings(
+        uri=_require_env("MONGODB_URI"),
+        database=_require_env("MONGODB_DB"),
+        timeout_ms=timeout_ms,
+    )
 
 
 def get_client() -> MongoClient:
     global _client
 
     if _client is None:
+        settings = get_mongo_settings()
         _client = MongoClient(
-            MONGODB_URI,
-            serverSelectionTimeoutMS=MONGODB_TIMEOUT_MS,
+            settings.uri,
+            serverSelectionTimeoutMS=settings.timeout_ms,
             tz_aware=False,
         )
 
@@ -28,7 +60,7 @@ def get_client() -> MongoClient:
 
 
 def get_database() -> Database:
-    return get_client()[MONGODB_DB]
+    return get_client()[get_mongo_settings().database]
 
 
 def init_db() -> None:
