@@ -1,13 +1,17 @@
 import os
 from importlib.util import find_spec
+import logging.config
 from pathlib import Path
 import sys
 
 from dotenv import load_dotenv
 import uvicorn
 
+from app.logging_utils import build_log_config
+
 
 ROOT = Path(__file__).resolve().parent
+LOG_DIR = ROOT / "logs"
 load_dotenv(ROOT / ".env")
 
 
@@ -29,6 +33,10 @@ def main() -> None:
 
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", 8000))
+    log_config = build_log_config(LOG_DIR)
+    logging.config.dictConfig(log_config)
+    logging.getLogger(__name__).info("Server log file -> %s", LOG_DIR / "server.log")
+    logging.getLogger(__name__).info("Audit log file -> %s", LOG_DIR / "audit.log")
 
     uvicorn.run(
         "app.main:app",
@@ -36,6 +44,8 @@ def main() -> None:
         port=port,
         reload=_env_flag("RELOAD", default=False),
         app_dir=str(ROOT),
+        log_config=log_config,
+        access_log=True,
     )
 
 

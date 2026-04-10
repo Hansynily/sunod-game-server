@@ -4,46 +4,49 @@
     <meta charset="UTF-8" />
     <title>Sunod Telemetry - Players</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="/static/fonts/outfit.css" rel="stylesheet" />
     <style>
         :root {
-            color-scheme: dark light;
-            --bg: #020617;
-            --bg-panel: rgba(15, 23, 42, 0.96);
-            --bg-card: rgba(15, 23, 42, 0.9);
-            --border: #1f2937;
-            --text: #e5e7eb;
-            --muted: #94a3b8;
-            --accent: #22d3ee;
-            --accent-strong: #38bdf8;
-            --positive: #22c55e;
-            --danger: #f87171;
+            --bg: #f2ede4;
+            --bg2: #e8e2d8;
+            --panel: #faf8f3;
+            --fg: #141210;
+            --border: #141210;
+            --muted: #6b6560;
+            --accent: #d64f1e;
+            --accent-fg: #ffffff;
+            --shadow: 4px 4px 0 #141210;
+            --danger: #b63d1d;
+            --danger-fg: #ffffff;
         }
 
-        [data-theme="light"] {
-            --bg: #eef4fb;
-            --bg-panel: #ffffff;
-            --bg-card: #ffffff;
-            --border: #d5e0ee;
-            --text: #0f172a;
-            --muted: #64748b;
-            --accent: #0ea5e9;
-            --accent-strong: #0284c7;
-            --positive: #16a34a;
-            --danger: #dc2626;
+        [data-theme="dark"] {
+            --bg: #111210;
+            --bg2: #1c1e1a;
+            --panel: #181a17;
+            --fg: #ede8df;
+            --border: #ede8df;
+            --muted: #888078;
+            --accent: #e8622c;
+            --accent-fg: #ffffff;
+            --shadow: 4px 4px 0 #ede8df;
+            --danger: #ff8a65;
+            --danger-fg: #111210;
         }
 
-        * { box-sizing: border-box; }
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            border-radius: 0;
+        }
 
         body {
-            margin: 0;
             min-height: 100vh;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background: radial-gradient(circle at top left, #0f172a 0, #020617 52%, #000 100%);
-            color: var(--text);
-        }
-
-        [data-theme="light"] body {
-            background: radial-gradient(circle at top left, #ffffff 0, #eef4fb 55%, #dfe9f5 100%);
+            background: var(--bg);
+            color: var(--fg);
+            font-family: "Outfit", sans-serif;
+            transition: background 0.15s, color 0.15s;
         }
 
         .shell {
@@ -54,45 +57,124 @@
 
         .topbar {
             display: flex;
-            justify-content: flex-end;
-            gap: 0.75rem;
-            margin-bottom: 1rem;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
         }
 
-        .theme-toggle {
-            border: 1px solid var(--border);
-            border-radius: 999px;
-            background: var(--bg-panel);
+        .topbar-copy {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            min-width: 0;
+        }
+
+        .accent-bar {
+            width: 5px;
+            min-height: 74px;
+            background: var(--accent);
+            flex-shrink: 0;
+            margin-top: 0.1rem;
+        }
+
+        .wordmark {
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
             color: var(--muted);
-            padding: 0.5rem 0.9rem;
-            cursor: pointer;
+            margin-bottom: 0.45rem;
         }
 
-        .avatar {
-            width: 36px;
-            height: 36px;
-            border-radius: 999px;
-            border: 1px solid var(--border);
+        .page-title h1 {
+            font-size: clamp(2rem, 4vw, 2.8rem);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-title p {
+            max-width: 62ch;
+            font-size: 0.95rem;
+            line-height: 1.55;
+            color: var(--muted);
+        }
+
+        .topbar-actions,
+        .actions {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .topbar-actions form,
+        .actions form {
+            margin: 0;
+        }
+
+        .control-button,
+        .table-button {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            background: var(--bg-panel);
-            color: var(--muted);
-            font-size: 0.8rem;
+            min-height: 44px;
+            padding: 0.75rem 0.95rem;
+            border: 2px solid var(--border);
+            background: var(--panel);
+            color: var(--fg);
+            font-family: "Outfit", sans-serif;
+            font-size: 0.74rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            text-decoration: none;
+            white-space: nowrap;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            transition: transform 0.08s, box-shadow 0.08s, background 0.1s, color 0.1s;
         }
 
-        .header {
-            margin-bottom: 1.25rem;
+        .control-button:hover,
+        .table-button:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 6px 6px 0 var(--border);
         }
 
-        .header h1 {
-            margin: 0 0 0.35rem;
-            font-size: 2rem;
+        .control-button:active,
+        .table-button:active {
+            transform: translate(4px, 4px);
+            box-shadow: none;
         }
 
-        .header p {
-            margin: 0;
-            color: var(--muted);
+        .table-button.primary {
+            background: var(--accent);
+            color: var(--accent-fg);
+        }
+
+        .table-button.danger {
+            background: var(--danger);
+            color: var(--danger-fg);
+        }
+
+        .avatar {
+            min-width: 44px;
+            height: 44px;
+            padding: 0 0.8rem;
+            border: 2px solid var(--border);
+            background: var(--panel);
+            color: var(--fg);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            box-shadow: var(--shadow);
         }
 
         .cards {
@@ -103,36 +185,33 @@
         }
 
         .card {
-            background: linear-gradient(135deg, rgba(34, 211, 238, 0.1), var(--bg-card));
-            border: 1px solid var(--border);
-            border-radius: 1.2rem;
-            padding: 1.1rem 1.2rem;
-            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
-        }
-
-        .card:nth-child(2) {
-            background: linear-gradient(135deg, rgba(129, 140, 248, 0.12), var(--bg-card));
-        }
-
-        .card:nth-child(3) {
-            background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), var(--bg-card));
+            background: var(--panel);
+            border: 2px solid var(--border);
+            box-shadow: var(--shadow);
+            padding: 1rem 1.1rem;
         }
 
         .card-label {
+            margin-bottom: 0.55rem;
             color: var(--muted);
-            font-size: 0.85rem;
-            margin-bottom: 0.35rem;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
         }
 
         .card-value {
-            font-size: 2rem;
+            font-size: clamp(1.9rem, 3vw, 2.45rem);
             font-weight: 700;
+            line-height: 1;
+            letter-spacing: -0.03em;
         }
 
         .card-sub {
-            margin-top: 0.45rem;
-            color: var(--positive);
-            font-size: 0.85rem;
+            margin-top: 0.55rem;
+            color: var(--muted);
+            font-size: 0.82rem;
+            line-height: 1.45;
         }
 
         .toolbar {
@@ -145,44 +224,47 @@
 
         .search {
             flex: 1;
-            max-width: 420px;
+            max-width: 460px;
         }
 
         .search input {
             width: 100%;
-            padding: 0.75rem 1rem;
-            border-radius: 999px;
-            border: 1px solid var(--border);
-            background: var(--bg-panel);
-            color: var(--text);
+            padding: 0.8rem 0.9rem;
+            border: 1.5px solid var(--border);
+            background: var(--bg2);
+            color: var(--fg);
+            font-family: "Outfit", sans-serif;
+            font-size: 0.95rem;
             outline: none;
+            transition: border-color 0.1s, box-shadow 0.1s;
         }
 
-        .pill {
+        .search input:focus {
+            border-color: var(--accent);
+            box-shadow: 3px 3px 0 var(--accent);
+        }
+
+        .toolbar-label {
             display: inline-flex;
             align-items: center;
-            gap: 0.45rem;
-            padding: 0.55rem 0.9rem;
-            border-radius: 999px;
-            border: 1px solid var(--border);
-            background: var(--bg-panel);
+            min-height: 46px;
+            padding: 0.75rem 0.9rem;
+            border: 2px solid var(--border);
+            background: var(--panel);
             color: var(--muted);
-            font-size: 0.85rem;
-        }
-
-        .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 999px;
-            background: var(--accent);
+            box-shadow: var(--shadow);
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            white-space: nowrap;
         }
 
         .table-shell {
-            border: 1px solid var(--border);
-            border-radius: 1.2rem;
+            border: 2px solid var(--border);
+            background: var(--panel);
+            box-shadow: var(--shadow);
             overflow: hidden;
-            background: var(--bg-panel);
-            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
         }
 
         table {
@@ -192,25 +274,27 @@
 
         th,
         td {
-            padding: 0.9rem 1rem;
+            padding: 0.95rem 1rem;
+            border-bottom: 1.5px solid var(--border);
             text-align: left;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.9rem;
+            vertical-align: top;
+            font-size: 0.92rem;
         }
 
         th {
+            background: var(--bg2);
             color: var(--muted);
-            font-size: 0.75rem;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.15em;
             text-transform: uppercase;
-            letter-spacing: 0.08em;
-            background: rgba(2, 6, 23, 0.35);
         }
 
-        [data-theme="light"] th {
-            background: #f4f8fc;
+        tbody tr:hover {
+            background: var(--bg2);
         }
 
-        tr:last-child td {
+        tbody tr:last-child td {
             border-bottom: 0;
         }
 
@@ -218,64 +302,40 @@
             color: var(--muted);
         }
 
+        .role-pill,
         .source-pill {
             display: inline-flex;
             align-items: center;
-            padding: 0.25rem 0.7rem;
-            border-radius: 999px;
-            border: 1px solid var(--border);
-            background: rgba(34, 211, 238, 0.08);
-            color: var(--accent-strong);
-            font-size: 0.78rem;
-            white-space: nowrap;
-        }
-
-        .role-pill {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.25rem 0.7rem;
-            border-radius: 999px;
-            border: 1px solid var(--border);
-            font-size: 0.78rem;
-            white-space: nowrap;
+            padding: 0.3rem 0.55rem;
+            border: 1.5px solid var(--border);
+            background: var(--bg2);
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
             text-transform: uppercase;
-            letter-spacing: 0.06em;
+            white-space: nowrap;
         }
 
         .role-pill.admin {
-            color: var(--positive);
-            background: rgba(34, 197, 94, 0.08);
+            color: var(--fg);
+            border-left: 4px solid var(--accent);
         }
 
         .role-pill.user {
             color: var(--muted);
-            background: rgba(148, 163, 184, 0.08);
+            border-left: 4px solid var(--muted);
         }
 
-        .actions {
-            display: inline-flex;
-            gap: 0.55rem;
-            flex-wrap: wrap;
+        .source-pill {
+            color: var(--fg);
+            border-left: 4px solid var(--accent);
         }
 
-        .button-link,
-        .button-danger {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0.45rem 0.85rem;
-            border-radius: 999px;
-            border: 1px solid var(--border);
-            text-decoration: none;
-            background: transparent;
-            color: var(--accent-strong);
-            font-size: 0.85rem;
-            cursor: pointer;
-        }
-
-        .button-danger {
-            color: var(--danger);
-            border-color: rgba(248, 113, 113, 0.4);
+        .detail-line {
+            margin-top: 0.4rem;
+            color: var(--muted);
+            font-size: 0.84rem;
+            line-height: 1.45;
         }
 
         .empty {
@@ -284,14 +344,32 @@
             padding: 1.4rem;
         }
 
-        @media (max-width: 900px) {
+        @media (max-width: 960px) {
+            .shell {
+                padding: 1.25rem;
+            }
+
+            .topbar,
             .toolbar {
                 flex-direction: column;
                 align-items: stretch;
             }
 
+            .topbar-actions,
+            .actions {
+                justify-content: flex-start;
+            }
+
             .search {
                 max-width: none;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .table-shell {
+                border: 0;
+                box-shadow: none;
+                background: transparent;
             }
 
             table,
@@ -308,22 +386,55 @@
                 display: none;
             }
 
+            tbody {
+                display: grid;
+                gap: 1rem;
+            }
+
             tr {
-                border-bottom: 1px solid var(--border);
+                border: 2px solid var(--border);
+                background: var(--panel);
+                box-shadow: var(--shadow);
             }
 
             td {
                 display: flex;
+                align-items: flex-start;
                 justify-content: space-between;
                 gap: 1rem;
+                padding: 0.85rem 1rem;
+                border-bottom: 1.5px solid var(--border);
             }
 
             td::before {
                 content: attr(data-label);
+                flex: 0 0 42%;
                 color: var(--muted);
-                text-transform: uppercase;
-                letter-spacing: 0.08em;
                 font-size: 0.72rem;
+                font-weight: 600;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+            }
+
+            td[data-label="Latest Cluster Result"],
+            td[data-label="Actions"] {
+                display: block;
+            }
+
+            td[data-label="Latest Cluster Result"]::before,
+            td[data-label="Actions"]::before {
+                display: block;
+                margin-bottom: 0.5rem;
+            }
+
+            td:last-child {
+                border-bottom: 0;
+            }
+
+            .empty {
+                border: 2px solid var(--border);
+                background: var(--panel);
+                box-shadow: var(--shadow);
             }
         }
     </style>
@@ -331,17 +442,21 @@
 <body>
 <div class="shell">
     <div class="topbar">
-        <form method="post" action="/admin/logout">
-            <button class="theme-toggle" type="submit">Logout {{ current_user.username }}</button>
-        </form>
-        <button id="theme-toggle" class="theme-toggle" type="button">Light mode</button>
-        <div class="avatar">{{ current_user.username[0]|upper if current_user.username else "A" }}</div>
+        <div class="topbar-copy">
+            <div class="accent-bar"></div>
+            <div class="page-title">
+                <span class="wordmark">Sunod / Telemetry</span>
+                <h1>Players</h1>
+            </div>
+        </div>
+        <div class="topbar-actions">
+            <form method="post" action="/admin/logout">
+                <button class="control-button" type="submit">Logout {{ current_user.username }}</button>
+            </form>
+            <button id="theme-toggle" class="control-button" type="button">Dark mode</button>
+            <div class="avatar">{{ current_user.username[0]|upper if current_user.username else "A" }}</div>
+        </div>
     </div>
-
-    <section class="header">
-        <h1>Players</h1>
-        <p>Live overview of run-complete sessions, ML outputs, and fallback sources.</p>
-    </section>
 
     {% set stats = namespace(total_players=0, total_runs=0) %}
     {% if users %}
@@ -357,11 +472,11 @@
             <div class="card-value">{{ stats.total_players }}</div>
         </article>
         <article class="card">
-            <div class="card-label">Total Session Runs</div>
+            <div class="card-label">Total Runs</div>
             <div class="card-value">{{ stats.total_runs }}</div>
         </article>
         <article class="card">
-            <div class="card-label">Avg Runs / Player</div>
+            <div class="card-label">Avg Runs</div>
             <div class="card-value">
                 {% if stats.total_players > 0 %}
                     {{ '%.1f' | format(stats.total_runs / stats.total_players) }}
@@ -369,7 +484,6 @@
                     0.0
                 {% endif %}
             </div>
-            <div class="card-sub">Backed by the active run-complete telemetry flow</div>
         </article>
     </section>
 
@@ -377,7 +491,7 @@
         <div class="search">
             <input id="user-search" type="search" placeholder="Search by username or email..." />
         </div>
-        <div class="pill"><span class="dot"></span><span>Sorted by activity</span></div>
+        <div class="toolbar-label">Sorted by activity</div>
     </section>
 
     <section class="table-shell">
@@ -391,7 +505,7 @@
                 <th>Created At</th>
                 <th>Last Login</th>
                 <th>Total Runs</th>
-                <th>Last Source</th>
+                <th>Latest Cluster Result</th>
                 <th>Actions</th>
             </tr>
             </thead>
@@ -408,14 +522,26 @@
                         <td data-label="Created At" class="muted">{{ user.created_at }}</td>
                         <td data-label="Last Login" class="muted">{{ user.last_login or "-" }}</td>
                         <td data-label="Total Runs">{{ user.total_runs }}</td>
-                        <td data-label="Last Source">
-                            <span class="source-pill">{{ user.last_source or "No runs yet" }}</span>
+                        <td data-label="Latest Cluster Result">
+                            {% if user.last_predicted_cluster is not none %}
+                                <div>
+                                    <span class="source-pill">Cluster {{ user.last_predicted_cluster }} &middot; {{ user.last_cluster_label }}</span>
+                                    <div class="detail-line">Holland {{ user.last_cluster_holland_code or "-" }} &middot; {{ user.last_source or "Cluster Model" }}</div>
+                                </div>
+                            {% elif user.total_runs > 0 %}
+                                <div>
+                                    <span class="source-pill">Pending cluster result</span>
+                                    <div class="detail-line">Session recorded &middot; {{ user.last_source or "Session Telemetry" }}</div>
+                                </div>
+                            {% else %}
+                                <span class="source-pill">No runs yet</span>
+                            {% endif %}
                         </td>
                         <td data-label="Actions">
                             <div class="actions">
-                                <a href="/admin/users/{{ user.user_id }}" class="button-link">View performance</a>
+                                <a href="/admin/users/{{ user.user_id }}" class="table-button primary">View performance</a>
                                 <form method="post" action="/admin/users/{{ user.user_id }}/delete" onsubmit="return confirm('Delete this user and all telemetry records? This cannot be undone.');">
-                                    <button type="submit" class="button-danger">Delete</button>
+                                    <button type="submit" class="table-button danger">Delete</button>
                                 </form>
                             </div>
                         </td>
@@ -423,7 +549,7 @@
                 {% endfor %}
             {% else %}
                 <tr>
-                    <td colspan="9" class="empty">No users found yet. Once the game sends run-complete telemetry, players will appear here.</td>
+                    <td colspan="9" class="empty">No users found yet. Once the game sends session telemetry, players will appear here.</td>
                 </tr>
             {% endif %}
             </tbody>
@@ -449,7 +575,10 @@
             applyTheme(next);
             localStorage.setItem(key, next);
         });
-
+    })();
+</script>
+<script>
+    (function () {
         const input = document.getElementById("user-search");
         const rows = Array.from(document.querySelectorAll(".user-row"));
         input.addEventListener("input", function () {

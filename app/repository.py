@@ -64,9 +64,13 @@ class TelemetryRepository:
                 "player_id": 1,
                 "created_at": 1,
                 "source": 1,
+                "cluster_source": 1,
                 "career_result": 1,
+                "cluster_label": 1,
                 "career_family": 1,
                 "holland_code": 1,
+                "cluster_holland_code": 1,
+                "predicted_cluster": 1,
             },
         ).sort("created_at", DESCENDING)
 
@@ -81,10 +85,13 @@ class TelemetryRepository:
                 overview = {
                     "total_runs": 0,
                     "last_run_at": document.get("created_at"),
-                    "last_source": document.get("source"),
-                    "last_result": document.get("career_result"),
-                    "last_career_family": document.get("career_family"),
-                    "last_holland_code": document.get("holland_code"),
+                    "last_source": document.get("cluster_source") or document.get("source"),
+                    "last_result": document.get("cluster_label"),
+                    "last_career_family": document.get("cluster_label"),
+                    "last_holland_code": document.get("cluster_holland_code"),
+                    "last_predicted_cluster": document.get("predicted_cluster"),
+                    "last_cluster_label": document.get("cluster_label"),
+                    "last_cluster_holland_code": document.get("cluster_holland_code"),
                 }
                 overview_by_player[player_id] = overview
 
@@ -345,6 +352,37 @@ class TelemetryRepository:
 
         self.session_runs.insert_one(document)
         return document
+
+    def attach_cluster_result(
+        self,
+        *,
+        player_id: str,
+        session_id: str,
+        predicted_cluster: int,
+        cluster_holland_code: str,
+        cluster_label: str,
+        cluster_example_careers: list[str],
+        cluster_source: str,
+        cluster_model_version: str,
+    ) -> dict[str, Any] | None:
+        return self.session_runs.find_one_and_update(
+            {
+                "player_id": player_id,
+                "session_id": session_id,
+            },
+            {
+                "$set": {
+                    "predicted_cluster": predicted_cluster,
+                    "cluster_holland_code": cluster_holland_code,
+                    "cluster_label": cluster_label,
+                    "cluster_example_careers": list(cluster_example_careers),
+                    "cluster_source": cluster_source,
+                    "cluster_model_version": cluster_model_version,
+                },
+            },
+            sort=[("created_at", DESCENDING)],
+            return_document=ReturnDocument.AFTER,
+        )
 
     def _next_sequence(self, name: str) -> int:
         document = self.counters.find_one_and_update(

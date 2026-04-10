@@ -24,6 +24,13 @@ CHALLENGE_DEFINITIONS = (
     ChallengeDefinition("challenge_stub_04", "S"),
     ChallengeDefinition("challenge_stub_05", "E"),
     ChallengeDefinition("challenge_stub_06", "C"),
+    ChallengeDefinition("L1_CatQuest", "S"),
+    ChallengeDefinition("L1_LostFriend", "C"),
+    ChallengeDefinition("L2_MissingKey", "R"),
+    ChallengeDefinition("L2_CatMedicine", "R"),
+    ChallengeDefinition("L3_FallenSparrow", "I"),
+    ChallengeDefinition("L3_BlockedPath", "C"),
+    ChallengeDefinition("L3_SlipperyWay", "E"),
 )
 
 CHALLENGE_TAG_BY_ID = {
