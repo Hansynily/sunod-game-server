@@ -3,4 +3,5 @@ builder = "nixpacks"
 
 [deploy]
 startCommand = "python run_server.py"
-restartPolicyType = "on-failure"
+restartPolicyType = "ON_FAILURE"
+

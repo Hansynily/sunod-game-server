@@ -12,8 +12,8 @@ ensure_public_port_8000.ps1
 /app/__pycache__
 /app/__pycache__
 /app/routers/__pycache__
-/model_assets
 test.bat
 /templates_bak
 /old_templates
 /new_proposed_templates
+/model_assets
