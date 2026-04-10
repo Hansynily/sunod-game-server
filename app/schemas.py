@@ -202,6 +202,38 @@ class RuntimeStatusOut(BaseModel):
     detail: str
 
 
+class PredictionIn(BaseModel):
+    features: list[float] = Field(default_factory=list)
+
+
+class PredictionOut(BaseModel):
+    predicted_cluster: int
+
+
+class SessionClusterTelemetryIn(BaseModel):
+    player_id: str = Field(..., max_length=100)
+    session_id: str = Field(..., max_length=100)
+    predicted_cluster: int = Field(..., ge=0, le=8)
+
+    @field_validator("player_id", "session_id", mode="before")
+    @classmethod
+    def validate_cluster_required_strings(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("field cannot be empty.")
+        return normalized
+
+
+class SessionClusterTelemetryOut(BaseModel):
+    success: bool
+    message: str
+    predicted_cluster: int
+    holland_code: str
+    career_family: str
+    source: str
+    model_version: str
+
+
 class AdminUser(BaseModel):
     user_id: int
     username: str
@@ -214,6 +246,9 @@ class AdminUser(BaseModel):
     last_source: str | None = None
     last_result: str | None = None
     last_holland_code: str | None = None
+    last_predicted_cluster: int | None = None
+    last_cluster_label: str | None = None
+    last_cluster_holland_code: str | None = None
 
 
 class AdminSessionRun(BaseModel):
@@ -229,6 +264,12 @@ class AdminSessionRun(BaseModel):
     rounds_attempted: int
     rounds_cleared: int
     total_stars: int
+    predicted_cluster: int | None = None
+    cluster_label: str | None = None
+    cluster_holland_code: str | None = None
+    cluster_source: str | None = None
+    cluster_model_version: str | None = None
+    cluster_example_careers: list[str] = Field(default_factory=list)
 
 
 class UserPerformance(BaseModel):
@@ -245,3 +286,9 @@ class UserPerformance(BaseModel):
     latest_model_version: str | None = None
     latest_riasec: RiasecScoresOut
     runs: list[AdminSessionRun]
+    latest_predicted_cluster: int | None = None
+    latest_cluster_label: str | None = None
+    latest_cluster_holland_code: str | None = None
+    latest_cluster_source: str | None = None
+    latest_cluster_model_version: str | None = None
+    latest_cluster_example_careers: list[str] = Field(default_factory=list)

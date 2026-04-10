@@ -4,48 +4,51 @@
     <meta charset="UTF-8" />
     <title>Sunod Telemetry - {{ user.username }} Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="/static/fonts/outfit.css" rel="stylesheet" />
     <style>
         :root {
-            color-scheme: dark light;
-            --bg: #020617;
-            --bg-panel: rgba(15, 23, 42, 0.96);
-            --bg-card: rgba(15, 23, 42, 0.9);
-            --border: #1f2937;
-            --text: #e5e7eb;
-            --muted: #94a3b8;
-            --accent: #22d3ee;
-            --accent-strong: #38bdf8;
-            --positive: #22c55e;
-            --warning: #f59e0b;
-            --danger: #f87171;
+            --bg: #f2ede4;
+            --bg2: #e8e2d8;
+            --panel: #faf8f3;
+            --fg: #141210;
+            --border: #141210;
+            --muted: #6b6560;
+            --accent: #d64f1e;
+            --accent-fg: #ffffff;
+            --shadow: 4px 4px 0 #141210;
+            --danger: #b63d1d;
+            --danger-fg: #ffffff;
+            --warning: #b76721;
         }
 
-        [data-theme="light"] {
-            --bg: #eef4fb;
-            --bg-panel: #ffffff;
-            --bg-card: #ffffff;
-            --border: #d5e0ee;
-            --text: #0f172a;
-            --muted: #64748b;
-            --accent: #0ea5e9;
-            --accent-strong: #0284c7;
-            --positive: #16a34a;
-            --warning: #d97706;
-            --danger: #dc2626;
+        [data-theme="dark"] {
+            --bg: #111210;
+            --bg2: #1c1e1a;
+            --panel: #181a17;
+            --fg: #ede8df;
+            --border: #ede8df;
+            --muted: #888078;
+            --accent: #e8622c;
+            --accent-fg: #ffffff;
+            --shadow: 4px 4px 0 #ede8df;
+            --danger: #ff8a65;
+            --danger-fg: #111210;
+            --warning: #f0a14e;
         }
 
-        * { box-sizing: border-box; }
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            border-radius: 0;
+        }
 
         body {
-            margin: 0;
             min-height: 100vh;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background: radial-gradient(circle at top left, #0f172a 0, #020617 52%, #000 100%);
-            color: var(--text);
-        }
-
-        [data-theme="light"] body {
-            background: radial-gradient(circle at top left, #ffffff 0, #eef4fb 55%, #dfe9f5 100%);
+            background: var(--bg);
+            color: var(--fg);
+            font-family: "Outfit", sans-serif;
+            transition: background 0.15s, color 0.15s;
         }
 
         .shell {
@@ -57,66 +60,200 @@
         .topbar {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
             gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .topbar-actions {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .theme-toggle,
-        .back-link,
-        .delete-button,
-        .role-button {
-            border: 1px solid var(--border);
-            border-radius: 999px;
-            background: var(--bg-panel);
-            color: var(--muted);
-            padding: 0.5rem 0.9rem;
-            cursor: pointer;
-            text-decoration: none;
-            font-size: 0.85rem;
-        }
-
-        .delete-button {
-            color: var(--danger);
-            border-color: rgba(248, 113, 113, 0.4);
-        }
-
-        .role-button {
-            color: var(--accent-strong);
-        }
-
-        .avatar {
-            width: 36px;
-            height: 36px;
-            border-radius: 999px;
-            border: 1px solid var(--border);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--bg-panel);
-            color: var(--muted);
-            font-size: 0.8rem;
-        }
-
-        .header {
             margin-bottom: 1.25rem;
         }
 
-        .header h1 {
-            margin: 0 0 0.35rem;
-            font-size: 2rem;
+        .topbar-left,
+        .topbar-actions,
+        .meta-row,
+        .header-meta {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            flex-wrap: wrap;
         }
 
-        .header p {
+        .topbar-left form,
+        .topbar-actions form {
             margin: 0;
+        }
+
+        .wordmark {
+            display: inline-flex;
+            align-items: center;
+            min-height: 44px;
+            padding: 0.75rem 0.95rem;
+            border: 2px solid var(--border);
+            background: var(--panel);
             color: var(--muted);
-            line-height: 1.5;
+            box-shadow: var(--shadow);
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .control-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 44px;
+            padding: 0.75rem 0.95rem;
+            border: 2px solid var(--border);
+            background: var(--panel);
+            color: var(--fg);
+            font-family: "Outfit", sans-serif;
+            font-size: 0.74rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            text-decoration: none;
+            white-space: nowrap;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            transition: transform 0.08s, box-shadow 0.08s, background 0.1s, color 0.1s;
+        }
+
+        .control-button:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 6px 6px 0 var(--border);
+        }
+
+        .control-button:active {
+            transform: translate(4px, 4px);
+            box-shadow: none;
+        }
+
+        .control-button.danger {
+            background: var(--danger);
+            color: var(--danger-fg);
+        }
+
+        .control-button.accent {
+            background: var(--accent);
+            color: var(--accent-fg);
+        }
+
+        .static-label {
+            cursor: default;
+        }
+
+        .static-label:hover,
+        .static-label:active {
+            transform: none;
+            box-shadow: var(--shadow);
+        }
+
+        .avatar {
+            min-width: 44px;
+            height: 44px;
+            padding: 0 0.8rem;
+            border: 2px solid var(--border);
+            background: var(--panel);
+            color: var(--fg);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            box-shadow: var(--shadow);
+        }
+
+        .panel {
+            margin-bottom: 1rem;
+            background: var(--panel);
+            border: 2px solid var(--border);
+            box-shadow: var(--shadow);
+        }
+
+        .card-title-block {
+            padding: 1.4rem 1.5rem 1.2rem;
+            border-bottom: 2px solid var(--border);
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .accent-bar {
+            width: 5px;
+            min-height: 60px;
+            background: var(--accent);
+            flex-shrink: 0;
+            margin-top: 0.15rem;
+        }
+
+        .title-text .eyebrow {
+            display: block;
+            margin-bottom: 0.45rem;
+            color: var(--muted);
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+        }
+
+        .title-text h1 {
+            font-size: clamp(2rem, 4vw, 2.7rem);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1;
+        }
+
+        .title-text p {
+            margin-top: 0.5rem;
+            color: var(--muted);
+            font-size: 0.95rem;
+            line-height: 1.55;
+            max-width: 62ch;
+        }
+
+        .panel-body {
+            padding: 1.1rem 1.5rem 1.3rem;
+        }
+
+        .meta-tag,
+        .chip,
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.34rem 0.58rem;
+            border: 1.5px solid var(--border);
+            background: var(--bg2);
+            color: var(--fg);
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .meta-tag {
+            color: var(--muted);
+        }
+
+        .chip,
+        .badge {
+            border-left: 4px solid var(--accent);
+        }
+
+        .chip.warning {
+            border-left-color: var(--warning);
+            color: var(--fg);
+        }
+
+        .chip.neutral,
+        .badge.neutral {
+            border-left-color: var(--muted);
+            color: var(--muted);
+        }
+
+        .badge.model {
+            border-left-color: var(--accent);
         }
 
         .cards {
@@ -127,77 +264,63 @@
         }
 
         .card {
-            background: linear-gradient(135deg, rgba(34, 211, 238, 0.1), var(--bg-card));
-            border: 1px solid var(--border);
-            border-radius: 1.2rem;
-            padding: 1.1rem 1.2rem;
-            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
-        }
-
-        .card:nth-child(2) {
-            background: linear-gradient(135deg, rgba(129, 140, 248, 0.12), var(--bg-card));
-        }
-
-        .card:nth-child(3) {
-            background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), var(--bg-card));
-        }
-
-        .card:nth-child(4) {
-            background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), var(--bg-card));
+            background: var(--panel);
+            border: 2px solid var(--border);
+            box-shadow: var(--shadow);
+            padding: 1rem 1.1rem;
         }
 
         .card-label {
+            margin-bottom: 0.55rem;
             color: var(--muted);
-            font-size: 0.85rem;
-            margin-bottom: 0.35rem;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
         }
 
         .card-value {
-            font-size: 2rem;
+            font-size: clamp(1.9rem, 3vw, 2.45rem);
             font-weight: 700;
+            line-height: 1;
+            letter-spacing: -0.03em;
         }
 
-        .chip {
-            display: inline-flex;
+        .card-chip-row {
+            margin-top: 0.6rem;
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .panel-heading {
+            display: flex;
+            justify-content: space-between;
             align-items: center;
-            padding: 0.25rem 0.7rem;
-            border-radius: 999px;
-            border: 1px solid var(--border);
-            background: rgba(34, 211, 238, 0.08);
-            color: var(--accent-strong);
-            font-size: 0.8rem;
-            margin-top: 0.5rem;
-            margin-right: 0.45rem;
-        }
-
-        .chip.warning {
-            color: var(--warning);
-            background: rgba(245, 158, 11, 0.08);
-        }
-
-        .chip.neutral {
-            color: var(--muted);
-            background: rgba(148, 163, 184, 0.08);
-        }
-
-        .panel {
-            border: 1px solid var(--border);
-            border-radius: 1.2rem;
-            background: var(--bg-panel);
-            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
-            padding: 1.1rem 1.2rem;
-            margin-bottom: 1rem;
+            gap: 1rem;
+            margin-bottom: 0.9rem;
         }
 
         .panel-title {
-            margin: 0 0 0.8rem;
-            font-size: 1.1rem;
+            font-size: 1.05rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
         }
 
-        .meta-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.6rem;
+        .detail-text,
+        .detail-line {
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .detail-text {
+            margin-top: 0.9rem;
+            font-size: 0.92rem;
+        }
+
+        .detail-line {
+            margin-top: 0.4rem;
+            font-size: 0.84rem;
         }
 
         .riasec-grid {
@@ -208,48 +331,43 @@
 
         .riasec-item {
             border: 1px dashed var(--border);
-            border-radius: 1rem;
             padding: 0.9rem;
-            background: rgba(15, 23, 42, 0.2);
-        }
-
-        [data-theme="light"] .riasec-item {
-            background: #f8fbff;
+            background: transparent;
         }
 
         .riasec-label {
-            color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            font-size: 0.75rem;
             margin-bottom: 0.35rem;
+            color: var(--muted);
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
         }
 
         .riasec-value {
-            font-size: 1.5rem;
-            font-weight: 700;
             margin-bottom: 0.55rem;
+            font-size: 1.6rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
         }
 
         .riasec-track {
-            height: 6px;
-            border-radius: 999px;
-            background: rgba(148, 163, 184, 0.2);
+            height: 12px;
+            border: 1px solid var(--border);
+            background: var(--bg2);
             overflow: hidden;
         }
 
         .riasec-fill {
             height: 100%;
-            border-radius: 999px;
-            background: linear-gradient(90deg, var(--accent), #a855f7);
+            background: var(--accent);
         }
 
         .table-shell {
-            border: 1px solid var(--border);
-            border-radius: 1.2rem;
+            border: 2px solid var(--border);
+            background: var(--panel);
+            box-shadow: var(--shadow);
             overflow: hidden;
-            background: var(--bg-panel);
-            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
         }
 
         .table-top {
@@ -257,8 +375,15 @@
             justify-content: space-between;
             align-items: center;
             gap: 1rem;
-            padding: 0.95rem 1rem;
-            border-bottom: 1px solid var(--border);
+            padding: 1rem 1.1rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .table-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
         }
 
         table {
@@ -268,56 +393,32 @@
 
         th,
         td {
-            padding: 0.9rem 1rem;
+            padding: 0.95rem 1rem;
+            border-bottom: 1.5px solid var(--border);
             text-align: left;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.9rem;
+            vertical-align: top;
+            font-size: 0.92rem;
         }
 
         th {
+            background: var(--bg2);
             color: var(--muted);
-            font-size: 0.75rem;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.15em;
             text-transform: uppercase;
-            letter-spacing: 0.08em;
-            background: rgba(2, 6, 23, 0.35);
         }
 
-        [data-theme="light"] th {
-            background: #f4f8fc;
+        tbody tr:hover {
+            background: var(--bg2);
         }
 
-        tr:last-child td {
+        tbody tr:last-child td {
             border-bottom: 0;
         }
 
         .muted {
             color: var(--muted);
-        }
-
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0.2rem 0.65rem;
-            border-radius: 999px;
-            border: 1px solid var(--border);
-            font-size: 0.78rem;
-            white-space: nowrap;
-        }
-
-        .badge.model {
-            color: var(--accent-strong);
-            background: rgba(34, 211, 238, 0.08);
-        }
-
-        .badge.backend {
-            color: var(--warning);
-            background: rgba(245, 158, 11, 0.08);
-        }
-
-        .badge.local {
-            color: var(--positive);
-            background: rgba(34, 197, 94, 0.08);
         }
 
         .empty {
@@ -327,14 +428,27 @@
         }
 
         @media (max-width: 980px) {
-            .topbar {
+            .shell {
+                padding: 1.25rem;
+            }
+
+            .topbar,
+            .panel-heading {
                 flex-direction: column;
                 align-items: stretch;
             }
 
+            .topbar-left,
             .topbar-actions {
-                justify-content: space-between;
-                flex-wrap: wrap;
+                justify-content: flex-start;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .table-shell {
+                border: 0;
+                box-shadow: none;
+                background: transparent;
             }
 
             table,
@@ -351,22 +465,55 @@
                 display: none;
             }
 
+            tbody {
+                display: grid;
+                gap: 1rem;
+            }
+
             tr {
-                border-bottom: 1px solid var(--border);
+                border: 2px solid var(--border);
+                background: var(--panel);
+                box-shadow: var(--shadow);
             }
 
             td {
                 display: flex;
+                align-items: flex-start;
                 justify-content: space-between;
                 gap: 1rem;
+                padding: 0.85rem 1rem;
+                border-bottom: 1.5px solid var(--border);
             }
 
             td::before {
                 content: attr(data-label);
+                flex: 0 0 42%;
                 color: var(--muted);
-                text-transform: uppercase;
-                letter-spacing: 0.08em;
                 font-size: 0.72rem;
+                font-weight: 600;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+            }
+
+            td[data-label="Source"],
+            td[data-label="Career Family"] {
+                display: block;
+            }
+
+            td[data-label="Source"]::before,
+            td[data-label="Career Family"]::before {
+                display: block;
+                margin-bottom: 0.5rem;
+            }
+
+            td:last-child {
+                border-bottom: 0;
+            }
+
+            .empty {
+                border: 2px solid var(--border);
+                background: var(--panel);
+                box-shadow: var(--shadow);
             }
         }
     </style>
@@ -374,58 +521,55 @@
 <body>
 <div class="shell">
     <div class="topbar">
-        {% if can_manage_user %}
-            <a href="/admin/users" class="back-link">Back to Players</a>
-        {% else %}
-            <span class="back-link">My Dashboard</span>
-        {% endif %}
+        <div class="topbar-left">
+            <span class="wordmark">Sunod / Telemetry</span>
+            {% if can_manage_user %}
+                <a href="/admin/users" class="control-button">Back to Players</a>
+            {% else %}
+                <span class="control-button static-label">My Dashboard</span>
+            {% endif %}
+        </div>
         <div class="topbar-actions">
             {% if can_manage_user %}
                 {% if user.role == "admin" %}
                     <form method="post" action="/admin/users/{{ user.id }}/make-user">
-                        <button type="submit" class="role-button">Make User</button>
+                        <button type="submit" class="control-button accent">Make User</button>
                     </form>
                 {% else %}
                     <form method="post" action="/admin/users/{{ user.id }}/make-admin">
-                        <button type="submit" class="role-button">Make Admin</button>
+                        <button type="submit" class="control-button accent">Make Admin</button>
                     </form>
                 {% endif %}
                 <form method="post" action="/admin/users/{{ user.id }}/delete" onsubmit="return confirm('Delete this user and all telemetry records? This cannot be undone.');">
-                    <button type="submit" class="delete-button">Delete User</button>
+                    <button type="submit" class="control-button danger">Delete User</button>
                 </form>
             {% endif %}
             <form method="post" action="/admin/logout">
-                <button type="submit" class="theme-toggle">Logout {{ current_user.username }}</button>
+                <button type="submit" class="control-button">Logout {{ current_user.username }}</button>
             </form>
-            <button id="theme-toggle" class="theme-toggle" type="button">Light mode</button>
+            <button id="theme-toggle" class="control-button" type="button">Dark mode</button>
             <div class="avatar">{{ user.username[0]|upper if user.username else "P" }}</div>
         </div>
     </div>
 
-    <section class="header">
-        <h1>{{ user.username }}</h1>
-        <p>
-            ID: USR-{{ "%03d"|format(user.id) }}
-            | Email: {{ user.email or "n/a" }}
-            | Role: {{ user.role }}
-            | Created: {{ user.created_at }}
-            | Last Login: {{ user.last_login or "n/a" }}
-        </p>
+    <section class="panel">
+        <div class="card-title-block">
+            <div class="accent-bar"></div>
+            <div class="title-text">
+                <span class="eyebrow">Player Performance</span>
+                <h1>{{ user.username }}</h1>
+            </div>
+        </div>
+        <div class="panel-body">
+            <div class="header-meta">
+                <span class="meta-tag">ID: USR-{{ "%03d"|format(user.id) }}</span>
+                <span class="meta-tag">Email: {{ user.email or "n/a" }}</span>
+                <span class="meta-tag">Role: {{ user.role }}</span>
+                <span class="meta-tag">Created: {{ user.created_at }}</span>
+                <span class="meta-tag">Last Login: {{ user.last_login or "n/a" }}</span>
+            </div>
+        </div>
     </section>
-
-    <!--
-    <section class="header">
-        <h1>{{ user.username }}</h1>
-        <p>
-            ID: USR-{{ "%03d"|format(user.id) }}
-            · Email: {{ user.email or "n/a" }}
-            · Role: {{ user.role }}
-            · Created: {{ user.created_at }}
-            · Last Login: {{ user.last_login or "n/a" }}
-        </p>
-    </section>
-
-    -->
 
     <section class="cards">
         <article class="card">
@@ -433,75 +577,127 @@
             <div class="card-value">{{ summary.total_runs }}</div>
         </article>
         <article class="card">
-            <div class="card-label">Round Clear Rate</div>
+            <div class="card-label">Clear Rate</div>
             <div class="card-value">{{ '%.0f'|format(summary.avg_clear_rate) }}%</div>
         </article>
         <article class="card">
-            <div class="card-label">Avg Time / Run</div>
+            <div class="card-label">Avg Time</div>
             <div class="card-value">{{ '%.0f'|format(summary.avg_time_seconds) }}s</div>
-            <div class="chip warning">{{ '%.1f'|format(summary.avg_stars_per_run) }} avg stars</div>
+            <div class="card-chip-row">
+                <span class="chip warning">{{ '%.1f'|format(summary.avg_stars_per_run) }} avg stars</span>
+            </div>
         </article>
         <article class="card">
-            <div class="card-label">Latest Result</div>
-            <div class="card-value">{{ summary.latest_result }}</div>
-            {% if summary.latest_result == "N/A" %}
-                <div class="chip neutral">No runs yet</div>
-            {% else %}
-                <div class="chip">{{ summary.latest_source }}</div>
-            {% endif %}
+            <div class="card-label">Latest Cluster</div>
+            <div class="card-value">
+                {% if summary.latest_predicted_cluster is not none %}
+                    Cluster {{ summary.latest_predicted_cluster }}
+                {% else %}
+                    {{ summary.latest_cluster_label }}
+                {% endif %}
+            </div>
+            <div class="card-chip-row">
+                {% if summary.latest_predicted_cluster is none %}
+                    {% if summary.total_runs > 0 %}
+                        <span class="chip neutral">Pending cluster result</span>
+                    {% else %}
+                        <span class="chip neutral">No runs yet</span>
+                    {% endif %}
+                {% else %}
+                    <span class="chip">{{ summary.latest_cluster_label }}</span>
+                {% endif %}
+            </div>
         </article>
     </section>
 
     <section class="panel">
-        <h2 class="panel-title">Latest ML Output</h2>
-        <div class="meta-row">
-            <span class="chip">Holland: {{ summary.latest_holland_code }}</span>
-            <span class="chip">Career Family: {{ summary.latest_career_family }}</span>
-            <span class="chip">Source: {{ summary.latest_source }}</span>
-            <span class="chip neutral">Version: {{ summary.latest_model_version }}</span>
+        <div class="panel-body">
+            <div class="panel-heading">
+                <h2 class="panel-title">Latest Cluster Output</h2>
+            </div>
+            <div class="meta-row">
+                {% if summary.latest_predicted_cluster is not none %}
+                    <span class="chip">Cluster: {{ summary.latest_predicted_cluster }}</span>
+                    <span class="chip">Holland: {{ summary.latest_cluster_holland_code }}</span>
+                    <span class="chip">Career Family: {{ summary.latest_cluster_label }}</span>
+                    <span class="chip">Source: {{ summary.latest_cluster_source }}</span>
+                    <span class="chip neutral">Version: {{ summary.latest_cluster_model_version }}</span>
+                {% elif summary.total_runs > 0 %}
+                    <span class="chip warning">Pending cluster result</span>
+                    <span class="chip neutral">Source: {{ summary.latest_source }}</span>
+                {% else %}
+                    <span class="chip neutral">No cluster yet</span>
+                {% endif %}
+            </div>
+            {% if summary.latest_cluster_example_careers %}
+                <p class="detail-text">Example careers: {{ summary.latest_cluster_example_careers | join(", ") }}</p>
+            {% elif summary.latest_predicted_cluster is not none %}
+                <p class="detail-text">This cluster is treated as a broad or outlier profile, so no single career list is shown.</p>
+            {% elif summary.total_runs > 0 %}
+                <p class="detail-text">This run is recorded, but a cluster result has not been attached yet.</p>
+            {% endif %}
         </div>
     </section>
 
+    {% set latest_riasec = runs[0].riasec_scores if runs else none %}
+    {% set realistic = latest_riasec.r if latest_riasec and latest_riasec.r is defined else 0 %}
+    {% set investigative = latest_riasec.i if latest_riasec and latest_riasec.i is defined else 0 %}
+    {% set artistic = latest_riasec.a if latest_riasec and latest_riasec.a is defined else 0 %}
+    {% set social = latest_riasec.s if latest_riasec and latest_riasec.s is defined else 0 %}
+    {% set enterprising = latest_riasec.e if latest_riasec and latest_riasec.e is defined else 0 %}
+    {% set conventional = latest_riasec.c if latest_riasec and latest_riasec.c is defined else 0 %}
+    {% set riasec_peak = [realistic, investigative, artistic, social, enterprising, conventional] | max %}
+    {% set riasec_base = riasec_peak if riasec_peak > 0 else 1 %}
+
     <section class="panel">
-        <h2 class="panel-title">Latest Predicted RIASEC</h2>
-        <div class="riasec-grid">
-            <div class="riasec-item">
-                <div class="riasec-label">Realistic (R)</div>
-                <div class="riasec-value">{{ riasec.r }}</div>
-                <div class="riasec-track"><div class="riasec-fill" style="width: {{ riasec.r * 10 }}%;"></div></div>
+        <div class="panel-body">
+            <div class="panel-heading">
+                <h2 class="panel-title">Latest RIASEC Profile</h2>
+                {% if runs %}
+                    <span class="chip neutral">From latest recorded session</span>
+                {% else %}
+                    <span class="chip neutral">No session data yet</span>
+                {% endif %}
             </div>
-            <div class="riasec-item">
-                <div class="riasec-label">Investigative (I)</div>
-                <div class="riasec-value">{{ riasec.i }}</div>
-                <div class="riasec-track"><div class="riasec-fill" style="width: {{ riasec.i * 10 }}%;"></div></div>
-            </div>
-            <div class="riasec-item">
-                <div class="riasec-label">Artistic (A)</div>
-                <div class="riasec-value">{{ riasec.a }}</div>
-                <div class="riasec-track"><div class="riasec-fill" style="width: {{ riasec.a * 10 }}%;"></div></div>
-            </div>
-            <div class="riasec-item">
-                <div class="riasec-label">Social (S)</div>
-                <div class="riasec-value">{{ riasec.s }}</div>
-                <div class="riasec-track"><div class="riasec-fill" style="width: {{ riasec.s * 10 }}%;"></div></div>
-            </div>
-            <div class="riasec-item">
-                <div class="riasec-label">Enterprising (E)</div>
-                <div class="riasec-value">{{ riasec.e }}</div>
-                <div class="riasec-track"><div class="riasec-fill" style="width: {{ riasec.e * 10 }}%;"></div></div>
-            </div>
-            <div class="riasec-item">
-                <div class="riasec-label">Conventional (C)</div>
-                <div class="riasec-value">{{ riasec.c }}</div>
-                <div class="riasec-track"><div class="riasec-fill" style="width: {{ riasec.c * 10 }}%;"></div></div>
+            <div class="riasec-grid">
+                <article class="riasec-item">
+                    <div class="riasec-label">Realistic</div>
+                    <div class="riasec-value">{{ realistic }}</div>
+                    <div class="riasec-track"><div class="riasec-fill" style="width: {{ '%.0f'|format(realistic / riasec_base * 100) }}%;"></div></div>
+                </article>
+                <article class="riasec-item">
+                    <div class="riasec-label">Investigative</div>
+                    <div class="riasec-value">{{ investigative }}</div>
+                    <div class="riasec-track"><div class="riasec-fill" style="width: {{ '%.0f'|format(investigative / riasec_base * 100) }}%;"></div></div>
+                </article>
+                <article class="riasec-item">
+                    <div class="riasec-label">Artistic</div>
+                    <div class="riasec-value">{{ artistic }}</div>
+                    <div class="riasec-track"><div class="riasec-fill" style="width: {{ '%.0f'|format(artistic / riasec_base * 100) }}%;"></div></div>
+                </article>
+                <article class="riasec-item">
+                    <div class="riasec-label">Social</div>
+                    <div class="riasec-value">{{ social }}</div>
+                    <div class="riasec-track"><div class="riasec-fill" style="width: {{ '%.0f'|format(social / riasec_base * 100) }}%;"></div></div>
+                </article>
+                <article class="riasec-item">
+                    <div class="riasec-label">Enterprising</div>
+                    <div class="riasec-value">{{ enterprising }}</div>
+                    <div class="riasec-track"><div class="riasec-fill" style="width: {{ '%.0f'|format(enterprising / riasec_base * 100) }}%;"></div></div>
+                </article>
+                <article class="riasec-item">
+                    <div class="riasec-label">Conventional</div>
+                    <div class="riasec-value">{{ conventional }}</div>
+                    <div class="riasec-track"><div class="riasec-fill" style="width: {{ '%.0f'|format(conventional / riasec_base * 100) }}%;"></div></div>
+                </article>
             </div>
         </div>
     </section>
 
     <section class="table-shell">
         <div class="table-top">
-            <strong>Session Runs</strong>
-            <span class="chip">{{ summary.total_runs }} recorded runs</span>
+            <span class="table-title">Session Runs</span>
+            <span class="chip neutral">{{ summary.total_runs }} recorded runs</span>
         </div>
         <table>
             <thead>
@@ -509,8 +705,8 @@
                 <th>Session ID</th>
                 <th>Recorded At</th>
                 <th>Source</th>
-                <th>Holland</th>
-                <th>Career Result</th>
+                <th>Cluster</th>
+                <th>Career Family</th>
                 <th>Time (s)</th>
                 <th>Cleared</th>
                 <th>Stars</th>
@@ -523,16 +719,28 @@
                         <td data-label="Session ID" class="muted">{{ run.session_id }}</td>
                         <td data-label="Recorded At" class="muted">{{ run.created_at }}</td>
                         <td data-label="Source">
-                            {% if run.source == "RF Model" %}
-                                <span class="badge model">{{ run.source }}</span>
-                            {% elif run.source == "Backend Rubric Fallback" %}
-                                <span class="badge backend">{{ run.source }}</span>
+                            {% if run.predicted_cluster is not none %}
+                                <span class="badge model">{{ run.cluster_source }}</span>
                             {% else %}
-                                <span class="badge local">{{ run.source }}</span>
+                                <span class="badge neutral">{{ run.source }}</span>
                             {% endif %}
                         </td>
-                        <td data-label="Holland">{{ run.holland_code }}</td>
-                        <td data-label="Career Result">{{ run.career_result }}</td>
+                        <td data-label="Cluster">
+                            {% if run.predicted_cluster is not none %}
+                                Cluster {{ run.predicted_cluster }}
+                            {% else %}
+                                Pending
+                            {% endif %}
+                        </td>
+                        <td data-label="Career Family">
+                            {% if run.cluster_label %}
+                                {{ run.cluster_label }}
+                                <div class="detail-line">Holland {{ run.cluster_holland_code }}</div>
+                            {% else %}
+                                Pending cluster result
+                                <div class="detail-line">No cluster attached yet</div>
+                            {% endif %}
+                        </td>
                         <td data-label="Time (s)">{{ '%.0f'|format(run.total_time_spent_seconds) }}</td>
                         <td data-label="Cleared">{{ run.rounds_cleared }}/{{ run.rounds_attempted }}</td>
                         <td data-label="Stars">{{ run.total_stars }}</td>

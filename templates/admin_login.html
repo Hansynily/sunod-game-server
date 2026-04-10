@@ -4,159 +4,251 @@
     <meta charset="UTF-8" />
     <title>Sunod Telemetry - Dashboard Login</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="/static/fonts/outfit.css" rel="stylesheet" />
     <style>
         :root {
-            color-scheme: dark light;
-            --bg: #eef4fb;
-            --bg-grad-a: #ffffff;
-            --bg-grad-b: #eef4fb;
-            --bg-grad-c: #dfe9f5;
-            --panel: #ffffff;
-            --border: #d5e0ee;
-            --text: #0f172a;
-            --muted: #64748b;
-            --accent: #0ea5e9;
-            --danger: #dc2626;
-            --field: #f8fbff;
-            --toggle-bg: #ffffff;
-            --toggle-fg: #64748b;
-            --toggle-active: #e2e8f0;
+            --bg: #f2ede4;
+            --bg2: #e8e2d8;
+            --panel: #faf8f3;
+            --fg: #141210;
+            --border: #141210;
+            --muted: #6b6560;
+            --accent: #d64f1e;
+            --accent-fg: #ffffff;
+            --shadow: 4px 4px 0 #141210;
         }
 
         [data-theme="dark"] {
-            --bg: #020617;
-            --bg-grad-a: #0f172a;
-            --bg-grad-b: #020617;
-            --bg-grad-c: #000000;
-            --panel: rgba(15, 23, 42, 0.96);
-            --border: #1f2937;
-            --text: #e5e7eb;
-            --muted: #94a3b8;
-            --accent: #38bdf8;
-            --danger: #f87171;
-            --field: rgba(15, 23, 42, 0.65);
-            --toggle-bg: rgba(15, 23, 42, 0.96);
-            --toggle-fg: #94a3b8;
-            --toggle-active: #1e293b;
+            --bg: #111210;
+            --bg2: #1c1e1a;
+            --panel: #181a17;
+            --fg: #ede8df;
+            --border: #ede8df;
+            --muted: #888078;
+            --accent: #e8622c;
+            --accent-fg: #ffffff;
+            --shadow: 4px 4px 0 #ede8df;
         }
 
-        * { box-sizing: border-box; }
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            border-radius: 0;
+        }
 
         body {
-            margin: 0;
             min-height: 100vh;
             display: grid;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background: radial-gradient(circle at top left, var(--bg-grad-a) 0, var(--bg-grad-b) 55%, var(--bg-grad-c) 100%);
-            color: var(--text);
-            padding: 1.5rem;
+            place-items: center;
+            padding: 2rem 1.25rem;
+            background: var(--bg);
+            color: var(--fg);
+            font-family: "Outfit", sans-serif;
+            transition: background 0.15s, color 0.15s;
         }
 
         .page-shell {
-            width: min(100%, 460px);
-            margin: auto;
+            width: min(100%, 420px);
         }
 
         .topbar {
             display: flex;
-            justify-content: flex-end;
-            margin-bottom: 0.9rem;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .wordmark {
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--muted);
         }
 
         .theme-toggle {
-            border: 1px solid var(--border);
-            border-radius: 999px;
-            background: var(--toggle-bg);
-            color: var(--toggle-fg);
-            padding: 0.55rem 0.95rem;
+            font-family: "Outfit", sans-serif;
+            font-size: 0.72rem;
+            font-weight: 500;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            padding: 0.4rem 0.8rem;
+            background: transparent;
+            color: var(--muted);
+            border: 1.5px solid var(--border);
             cursor: pointer;
-            font-size: 0.85rem;
+            transition: background 0.1s, color 0.1s;
+        }
+
+        .theme-toggle:hover {
+            background: var(--fg);
+            color: var(--bg);
         }
 
         .card {
-            width: 100%;
             background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 1.4rem;
-            padding: 1.4rem;
-            box-shadow: 0 18px 36px rgba(15, 23, 42, 0.25);
+            border: 2px solid var(--border);
+            box-shadow: var(--shadow);
         }
 
-        h1 {
-            margin: 0 0 0.4rem;
+        .card-title-block {
+            padding: 1.5rem 1.6rem 1.35rem;
+            border-bottom: 2px solid var(--border);
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .accent-bar {
+            width: 5px;
+            min-height: 52px;
+            background: var(--accent);
+            flex-shrink: 0;
+            margin-top: 3px;
+        }
+
+        .title-text h1 {
             font-size: 1.9rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.05;
         }
 
-        p {
-            margin: 0 0 1.1rem;
+        .title-text p {
+            margin-top: 0.45rem;
+            font-size: 0.82rem;
             color: var(--muted);
+            font-weight: 400;
             line-height: 1.5;
+        }
+
+        .card-body {
+            padding: 1.6rem;
+        }
+
+        .error {
+            border-left: 4px solid var(--accent);
+            background: transparent;
+            color: var(--accent);
+            padding: 0.65rem 0.85rem;
+            margin-bottom: 1.4rem;
+            font-size: 0.82rem;
+            font-weight: 500;
+        }
+
+        .field {
+            margin-bottom: 1.15rem;
         }
 
         label {
             display: block;
-            margin-bottom: 0.45rem;
-            font-size: 0.85rem;
-            color: var(--muted);
+            font-size: 0.7rem;
+            font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.14em;
+            color: var(--muted);
+            margin-bottom: 0.4rem;
         }
 
         input {
             width: 100%;
-            padding: 0.85rem 0.95rem;
-            border-radius: 0.95rem;
-            border: 1px solid var(--border);
-            background: var(--field);
-            color: var(--text);
-            margin-bottom: 1rem;
+            padding: 0.75rem 0.85rem;
+            border: 1.5px solid var(--border);
+            background: var(--bg2);
+            color: var(--fg);
+            font-family: "Outfit", sans-serif;
+            font-size: 0.95rem;
+            font-weight: 400;
             outline: none;
+            transition: border-color 0.1s, box-shadow 0.1s;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+            box-shadow: 3px 3px 0 var(--accent);
         }
 
         .submit-button {
             width: 100%;
-            padding: 0.9rem 1rem;
-            border-radius: 999px;
-            border: 1px solid transparent;
+            margin-top: 0.35rem;
+            padding: 0.85rem 1rem;
+            border: 2px solid var(--border);
             background: var(--accent);
-            color: #08111d;
+            color: var(--accent-fg);
+            font-family: "Outfit", sans-serif;
+            font-size: 0.95rem;
             font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
             cursor: pointer;
+            box-shadow: var(--shadow);
+            transition: transform 0.08s, box-shadow 0.08s;
         }
 
-        .error {
-            margin-bottom: 1rem;
-            border: 1px solid rgba(248, 113, 113, 0.35);
-            background: rgba(248, 113, 113, 0.08);
-            color: var(--danger);
-            border-radius: 0.95rem;
-            padding: 0.8rem 0.9rem;
+        .submit-button:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 6px 6px 0 var(--border);
+        }
+
+        .submit-button:active {
+            transform: translate(4px, 4px);
+            box-shadow: none;
+        }
+
+        .card-footer {
+            border-top: 1.5px dashed var(--border);
+            padding: 0.6rem 1.6rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-footer span {
+            font-size: 0.65rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.13em;
+            color: var(--muted);
         }
     </style>
 </head>
 <body>
 <div class="page-shell">
     <div class="topbar">
+        <span class="wordmark">Sunod / Telemetry</span>
         <button id="theme-toggle" class="theme-toggle" type="button">Dark mode</button>
     </div>
 
     <section class="card">
-        <h1>Dashboard Login</h1>
-        <p>Sign in to the SUNOD dashboard. Admins can manage all players, while standard users go straight to their own profile.</p>
+        <div class="card-title-block">
+            <div class="accent-bar"></div>
+            <div class="title-text">
+                <h1>Dashboard<br>Login</h1>
+            </div>
+        </div>
 
-        {% if error_message %}
-            <div class="error">{{ error_message }}</div>
-        {% endif %}
+        <div class="card-body">
+            {% if error_message %}
+                <div class="error">{{ error_message }}</div>
+            {% endif %}
 
-        <form method="post" action="/admin/login">
-            <label for="username">Username</label>
-            <input id="username" name="username" type="text" autocomplete="username" required />
+            <form method="post" action="/admin/login">
+                <div class="field">
+                    <label for="username">Username</label>
+                    <input id="username" name="username" type="text" autocomplete="username" required />
+                </div>
+                <div class="field">
+                    <label for="password">Password</label>
+                    <input id="password" name="password" type="password" autocomplete="current-password" required />
+                </div>
+                <button class="submit-button" type="submit">Enter Dashboard</button>
+            </form>
+        </div>
 
-            <label for="password">Password</label>
-            <input id="password" name="password" type="password" autocomplete="current-password" required />
-
-            <button class="submit-button" type="submit">Enter Dashboard</button>
-        </form>
+        <div class="card-footer">
+            <span>Sunod &copy; 2026</span>
+        </div>
     </section>
 </div>
 

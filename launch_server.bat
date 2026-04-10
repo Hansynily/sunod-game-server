@@ -24,3 +24,4 @@ start http://127.0.0.1:8000/admin/login
 "venv\Scripts\python.exe" run_server.py
 
 pause
+

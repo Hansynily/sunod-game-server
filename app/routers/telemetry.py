@@ -1,5 +1,6 @@
 from datetime import datetime
 import logging
+from pathlib import Path
 from typing import Any
 import uuid
 
@@ -7,8 +8,9 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from app import career_mapping, feature_pipeline, ml_runtime, rubric, schemas
+from app import cluster_mapping, feature_pipeline, ml_runtime, schemas
 from app.database import get_db
+from app.logging_utils import audit_log
 from app.repository import DuplicateUserError, TelemetryRepository
 from app.security import (
     ADMIN_SESSION_COOKIE,
@@ -24,6 +26,7 @@ from app.security import (
 
 LOGGER = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/telemetry", tags=["telemetry"])
+predict_router = APIRouter(prefix="/api", tags=["prediction"])
 admin_router = APIRouter(
     prefix="/api/admin",
     tags=["admin"],
@@ -32,6 +35,21 @@ admin_router = APIRouter(
 admin_ui_router = APIRouter(prefix="/admin", tags=["admin-ui"])
 
 templates = Jinja2Templates(directory="templates")
+
+
+def _principal_fields(user, *, prefix: str) -> dict[str, Any]:
+    if user is None:
+        return {
+            f"{prefix}_id": None,
+            f"{prefix}_username": None,
+            f"{prefix}_role": None,
+        }
+
+    return {
+        f"{prefix}_id": user.id,
+        f"{prefix}_username": user.username,
+        f"{prefix}_role": user.role,
+    }
 
 
 def _build_auth_response(user) -> schemas.AuthResponse:
@@ -51,49 +69,29 @@ def _build_auth_response(user) -> schemas.AuthResponse:
     )
 
 
-def _calculate_rubric_integer_scores(
-    payload: schemas.RunSummaryTelemetryIn,
-) -> dict[str, int]:
-    return rubric.calculate_riasec_scores(payload.rounds).integer_scores
-
-
-def _build_run_complete_message(
-    *,
-    source: str,
-    model_version: str,
-    detail: str | None = None,
-) -> str:
-    if source == "RF Model":
-        return (
-            "Run-complete telemetry recorded successfully using the trained RF model "
-            f"({model_version})."
-        )
-
-    message = (
-        "Run-complete telemetry recorded successfully using backend rubric fallback "
-        f"({model_version})."
-    )
-    if detail:
-        message += f" {detail}"
-    return message
-
-
 def _build_runtime_status_response() -> schemas.RuntimeStatusOut:
-    runtime_status = ml_runtime.get_model_status()
-    if runtime_status.available:
+    cluster_status = ml_runtime.get_cluster_model_status()
+    if cluster_status.available:
         return schemas.RuntimeStatusOut(
             rf_model_loaded=True,
-            active_source="RF Model",
-            active_version=runtime_status.model_version or "rf_v1",
-            detail="Runtime model loaded and ready.",
+            active_source="Cluster Model",
+            active_version=_resolve_cluster_model_version(),
+            detail="Cluster model loaded and ready.",
         )
 
     return schemas.RuntimeStatusOut(
         rf_model_loaded=False,
-        active_source="Backend Rubric Fallback",
-        active_version="rubric_v1",
-        detail=runtime_status.reason or "Runtime model unavailable.",
+        active_source="Cluster Model",
+        active_version=_resolve_cluster_model_version(),
+        detail=cluster_status.reason or "Cluster model unavailable.",
     )
+
+
+def _resolve_cluster_model_version() -> str:
+    cluster_status = ml_runtime.get_cluster_model_status()
+    if cluster_status.model_path:
+        return Path(cluster_status.model_path).name
+    return "cluster-model"
 
 
 def _empty_admin_riasec_scores() -> dict[str, int]:
@@ -140,6 +138,12 @@ def _summarize_session_run(document: dict[str, Any]) -> dict[str, Any]:
         "rounds_attempted": rounds_attempted,
         "rounds_cleared": rounds_cleared,
         "total_stars": total_stars,
+        "predicted_cluster": document.get("predicted_cluster"),
+        "cluster_label": document.get("cluster_label"),
+        "cluster_holland_code": document.get("cluster_holland_code"),
+        "cluster_source": document.get("cluster_source"),
+        "cluster_model_version": document.get("cluster_model_version"),
+        "cluster_example_careers": list(document.get("cluster_example_careers") or []),
     }
 
 
@@ -163,6 +167,9 @@ def _build_admin_user_rows(
                 "last_source": overview.get("last_source"),
                 "last_result": overview.get("last_result"),
                 "last_holland_code": overview.get("last_holland_code"),
+                "last_predicted_cluster": overview.get("last_predicted_cluster"),
+                "last_cluster_label": overview.get("last_cluster_label"),
+                "last_cluster_holland_code": overview.get("last_cluster_holland_code"),
             }
         )
 
@@ -205,12 +212,18 @@ def _build_user_performance_payload(
         "avg_clear_rate": avg_clear_rate,
         "avg_time_seconds": avg_time_seconds,
         "avg_stars_per_run": avg_stars_per_run,
-        "latest_source": latest_run["source"] if latest_run else None,
-        "latest_result": latest_run["career_result"] if latest_run else None,
-        "latest_holland_code": latest_run["holland_code"] if latest_run else None,
-        "latest_career_family": latest_run["career_family"] if latest_run else None,
-        "latest_model_version": latest_run["model_version"] if latest_run else None,
+        "latest_source": (latest_run["cluster_source"] or latest_run["source"]) if latest_run else None,
+        "latest_result": latest_run["cluster_label"] if latest_run else None,
+        "latest_holland_code": latest_run["cluster_holland_code"] if latest_run else None,
+        "latest_career_family": latest_run["cluster_label"] if latest_run else None,
+        "latest_model_version": latest_run["cluster_model_version"] if latest_run else None,
         "latest_riasec": latest_run["riasec_scores"] if latest_run else _empty_admin_riasec_scores(),
+        "latest_predicted_cluster": latest_run["predicted_cluster"] if latest_run else None,
+        "latest_cluster_label": latest_run["cluster_label"] if latest_run else None,
+        "latest_cluster_holland_code": latest_run["cluster_holland_code"] if latest_run else None,
+        "latest_cluster_source": latest_run["cluster_source"] if latest_run else None,
+        "latest_cluster_model_version": latest_run["cluster_model_version"] if latest_run else None,
+        "latest_cluster_example_careers": latest_run["cluster_example_careers"] if latest_run else [],
         "runs": runs,
     }
 
@@ -270,6 +283,16 @@ def _require_admin_ui_user(
     )
 
 
+def _require_user_or_404(db: TelemetryRepository, user_id: int):
+    user = db.find_user_by_id(user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
+        )
+    return user
+
+
 @router.post("/users", response_model=schemas.AuthResponse, status_code=status.HTTP_201_CREATED)
 def create_user(
     user_in: schemas.UserCreate,
@@ -288,6 +311,12 @@ def create_user(
 
     if requested_role == "admin":
         if current_user is None or current_user.role != "admin":
+            audit_log(
+                "ADMIN_ACCOUNT_CREATE_DENIED",
+                requested_username=username,
+                requested_role=requested_role,
+                **_principal_fields(current_user, prefix="actor"),
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Admin access required to create an admin account.",
@@ -305,6 +334,14 @@ def create_user(
                 user_in.riasec_profile.model_dump() if user_in.riasec_profile else None
             ),
         )
+        audit_log(
+            "USER_REGISTERED",
+            user_id=user.id,
+            username=user.username,
+            role=user.role,
+            mode="create",
+            **_principal_fields(current_user, prefix="actor"),
+        )
         return _build_auth_response(user)
     except DuplicateUserError as exc:
         upgraded_user = db.upgrade_legacy_user_password(
@@ -314,6 +351,14 @@ def create_user(
         if upgraded_user:
             if upgraded_user.role != assigned_role:
                 upgraded_user = db.set_user_role(upgraded_user.id, assigned_role) or upgraded_user
+            audit_log(
+                "USER_REGISTERED",
+                user_id=upgraded_user.id,
+                username=upgraded_user.username,
+                role=upgraded_user.role,
+                mode="upgrade_legacy_password",
+                **_principal_fields(current_user, prefix="actor"),
+            )
             return _build_auth_response(upgraded_user)
 
         raise HTTPException(
@@ -354,7 +399,15 @@ def login_user(
         )
 
     updated_user = db.touch_last_login(user.id)
-    return _build_auth_response(updated_user or user)
+    logged_in_user = updated_user or user
+    audit_log(
+        "USER_LOGGED_IN",
+        user_id=logged_in_user.id,
+        username=logged_in_user.username,
+        role=logged_in_user.role,
+        via="api",
+    )
+    return _build_auth_response(logged_in_user)
 
 
 @router.get("/users/{user_id}", response_model=schemas.User)
@@ -399,12 +452,7 @@ def create_quest_attempt(
     quest_in: schemas.QuestAttemptCreate,
     db: TelemetryRepository = Depends(get_db),
 ):
-    user = db.find_user_by_id(user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found.",
-        )
+    user = _require_user_or_404(db, user_id)
 
     quest_attempt = db.add_quest_attempt(
         user_id=user_id,
@@ -421,6 +469,16 @@ def create_quest_attempt(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found.",
         )
+    audit_log(
+        "QUEST_ATTEMPT_RECORDED",
+        user_id=user.id,
+        username=user.username,
+        quest_id=quest_attempt.quest_id,
+        quest_name=quest_attempt.quest_name,
+        quest_result=quest_attempt.quest_result,
+        success=quest_attempt.success,
+        via="api",
+    )
     return quest_attempt
 
 
@@ -478,6 +536,16 @@ def create_quest_attempt_telemetry(
             detail="User not found.",
         )
 
+    audit_log(
+        "QUEST_ATTEMPT_RECORDED",
+        user_id=user.id,
+        username=user.username,
+        quest_id=payload.quest_id,
+        quest_name=payload.quest_id,
+        quest_result=payload.quest_result,
+        success=1 if payload.quest_result.lower() == "success" else 0,
+        via="telemetry",
+    )
     return schemas.QuestAttemptTelemetryOut(
         success=True,
         message="Quest attempt telemetry recorded successfully.",
@@ -496,61 +564,19 @@ def create_run_complete_telemetry(
     try:
         validated_payload = feature_pipeline.validate_run_summary(payload)
         aggregated_features = feature_pipeline.extract_feature_record(validated_payload)
-        feature_vector = feature_pipeline.build_feature_vector(aggregated_features)
-        skill_use_totals = feature_pipeline.extract_skill_use_totals(aggregated_features)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
 
-    runtime_status = ml_runtime.get_model_status()
-    if runtime_status.available:
-        try:
-            raw_model_scores = ml_runtime.predict_scores(feature_vector, runtime_status)
-            riasec_scores = rubric.round_scores_to_integers(raw_model_scores)
-            source = "RF Model"
-            model_version = runtime_status.model_version or "rf_v1"
-            message = _build_run_complete_message(
-                source=source,
-                model_version=model_version,
-            )
-        except Exception:
-            LOGGER.exception(
-                "RF model inference failed for session_id=%s. Using rubric fallback.",
-                payload.session_id,
-            )
-            riasec_scores = _calculate_rubric_integer_scores(validated_payload)
-            source = "Backend Rubric Fallback"
-            model_version = "rubric_v1"
-            message = _build_run_complete_message(
-                source=source,
-                model_version=model_version,
-                detail="Trained model inference failed, so backend rubric fallback was used.",
-            )
-    else:
-        LOGGER.info(
-            "Runtime model unavailable for session_id=%s. Using rubric fallback.",
-            payload.session_id,
-        )
-        riasec_scores = _calculate_rubric_integer_scores(validated_payload)
-        source = "Backend Rubric Fallback"
-        model_version = "rubric_v1"
-        detail = "Trained model is unavailable, so backend rubric fallback was used."
-        if runtime_status.reason:
-            detail += f" {runtime_status.reason}"
-        message = _build_run_complete_message(
-            source=source,
-            model_version=model_version,
-            detail=detail,
-        )
-
-    holland_code = career_mapping.derive_holland_code(
-        riasec_scores,
-        skill_use_totals,
-    )
-    career_family = career_mapping.derive_career_family(riasec_scores)
-    career_result = career_family
+    source = "Session Telemetry"
+    model_version = "telemetry_v2"
+    message = "Run-complete telemetry recorded successfully."
+    riasec_scores = _empty_admin_riasec_scores()
+    holland_code = ""
+    career_family = "Pending Cluster Result"
+    career_result = "Pending Cluster Result"
 
     db.add_session_run(
         player_id=payload.player_id,
@@ -566,6 +592,16 @@ def create_run_complete_telemetry(
         career_result=career_result,
         source=source,
         model_version=model_version,
+    )
+    audit_log(
+        "RUN_COMPLETE_RECORDED",
+        player_id=payload.player_id,
+        username=payload.username,
+        session_id=payload.session_id,
+        source=source,
+        model_version=model_version,
+        total_time_spent_seconds=payload.total_time_spent_seconds,
+        rounds_recorded=len(payload.rounds),
     )
 
     return schemas.RunSummaryTelemetryOut(
@@ -586,6 +622,96 @@ def create_run_complete_telemetry(
 )
 def runtime_status():
     return _build_runtime_status_response()
+
+
+@predict_router.post(
+    "/predict",
+    response_model=schemas.PredictionOut,
+)
+def predict_cluster(payload: schemas.PredictionIn):
+    if len(payload.features) != 48:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="features must contain exactly 48 floats.",
+        )
+
+    cluster_status = ml_runtime.get_cluster_model_status()
+    if not cluster_status.available:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=cluster_status.reason or "Cluster model is unavailable.",
+        )
+
+    try:
+        predicted_cluster = ml_runtime.predict_cluster(payload.features, cluster_status)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        LOGGER.exception("Cluster prediction failed.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Prediction failed: {exc}",
+        ) from exc
+
+    return schemas.PredictionOut(predicted_cluster=predicted_cluster)
+
+
+@router.post(
+    "/session-cluster",
+    response_model=schemas.SessionClusterTelemetryOut,
+)
+def record_session_cluster(
+    payload: schemas.SessionClusterTelemetryIn,
+    db: TelemetryRepository = Depends(get_db),
+):
+    profile = cluster_mapping.get_cluster_profile(payload.predicted_cluster)
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="predicted_cluster must be between 0 and 8.",
+        )
+
+    cluster_source = "Cluster Model"
+    cluster_model_version = _resolve_cluster_model_version()
+    updated_run = db.attach_cluster_result(
+        player_id=payload.player_id,
+        session_id=payload.session_id,
+        predicted_cluster=payload.predicted_cluster,
+        cluster_holland_code=profile.holland_code,
+        cluster_label=profile.label,
+        cluster_example_careers=list(profile.example_careers),
+        cluster_source=cluster_source,
+        cluster_model_version=cluster_model_version,
+    )
+    if updated_run is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No recorded session run was found for that player/session pair.",
+        )
+
+    audit_log(
+        "RUN_CLUSTER_RECORDED",
+        player_id=payload.player_id,
+        session_id=payload.session_id,
+        predicted_cluster=payload.predicted_cluster,
+        holland_code=profile.holland_code,
+        career_family=profile.label,
+        source=cluster_source,
+        model_version=cluster_model_version,
+    )
+
+    return schemas.SessionClusterTelemetryOut(
+        success=True,
+        message="Cluster result recorded successfully.",
+        predicted_cluster=payload.predicted_cluster,
+        holland_code=profile.holland_code,
+        career_family=profile.label,
+        source=cluster_source,
+        model_version=cluster_model_version,
+    )
 
 
 @admin_router.get(
@@ -648,13 +774,27 @@ def admin_get_user_performance(
     "/users/{user_id}/make-admin",
     response_model=schemas.AdminUser,
 )
-def admin_make_user_admin(user_id: int, db: TelemetryRepository = Depends(get_db)):
+def admin_make_user_admin(
+    user_id: int,
+    current_admin = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    existing_user = _require_user_or_404(db, user_id)
     user = db.set_user_role(user_id, "admin")
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found.",
         )
+    audit_log(
+        "USER_ROLE_CHANGED",
+        target_user_id=user.id,
+        target_username=user.username,
+        old_role=existing_user.role,
+        new_role=user.role,
+        via="admin_api",
+        **_principal_fields(current_admin, prefix="actor"),
+    )
 
     row = _build_admin_user_rows([user], db.list_session_run_overview_by_player())[0]
     return schemas.AdminUser(**row)
@@ -664,13 +804,27 @@ def admin_make_user_admin(user_id: int, db: TelemetryRepository = Depends(get_db
     "/users/{user_id}/make-user",
     response_model=schemas.AdminUser,
 )
-def admin_make_user_standard(user_id: int, db: TelemetryRepository = Depends(get_db)):
+def admin_make_user_standard(
+    user_id: int,
+    current_admin = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    existing_user = _require_user_or_404(db, user_id)
     user = db.set_user_role(user_id, "user")
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found.",
         )
+    audit_log(
+        "USER_ROLE_CHANGED",
+        target_user_id=user.id,
+        target_username=user.username,
+        old_role=existing_user.role,
+        new_role=user.role,
+        via="admin_api",
+        **_principal_fields(current_admin, prefix="actor"),
+    )
 
     row = _build_admin_user_rows([user], db.list_session_run_overview_by_player())[0]
     return schemas.AdminUser(**row)
@@ -735,6 +889,12 @@ def admin_login_submit(
 
     user = db.find_user_by_username(normalized_username)
     if user is None or not user.password_hash or not verify_password(password, user.password_hash):
+        audit_log(
+            "DASHBOARD_LOGIN_FAILED",
+            username=normalized_username or None,
+            reason="invalid_credentials",
+            via="web",
+        )
         return templates.TemplateResponse(
             "admin_login.html",
             {
@@ -745,6 +905,13 @@ def admin_login_submit(
         )
 
     updated_user = db.touch_last_login(user.id) or user
+    audit_log(
+        "USER_LOGGED_IN",
+        user_id=updated_user.id,
+        username=updated_user.username,
+        role=updated_user.role,
+        via="web",
+    )
     response = RedirectResponse(
         url=_dashboard_url_for_user(updated_user),
         status_code=status.HTTP_303_SEE_OTHER,
@@ -763,7 +930,16 @@ def admin_login_submit(
 
 
 @admin_ui_router.post("/logout")
-def admin_logout():
+def admin_logout(request: Request, db: TelemetryRepository = Depends(get_db)):
+    current_user = _current_ui_user(request, db)
+    if current_user is not None:
+        audit_log(
+            "USER_LOGGED_OUT",
+            user_id=current_user.id,
+            username=current_user.username,
+            role=current_user.role,
+            via="web",
+        )
     response = RedirectResponse(url="/admin/login", status_code=status.HTTP_303_SEE_OTHER)
     response.delete_cookie(ADMIN_SESSION_COOKIE)
     return response
@@ -824,17 +1000,23 @@ def admin_user_performance_page(
     )
 
     latest_source = performance["latest_source"] or "No runs yet"
-    latest_result = performance["latest_result"] or "N/A"
+    pending_cluster_label = "Pending cluster result" if performance["total_runs"] > 0 else "No cluster yet"
     summary = {
         "total_runs": performance["total_runs"],
         "avg_clear_rate": performance["avg_clear_rate"],
         "avg_time_seconds": performance["avg_time_seconds"],
         "avg_stars_per_run": performance["avg_stars_per_run"],
         "latest_source": latest_source,
-        "latest_result": latest_result,
+        "latest_result": performance["latest_result"] or pending_cluster_label,
         "latest_holland_code": performance["latest_holland_code"] or "N/A",
-        "latest_career_family": performance["latest_career_family"] or "N/A",
+        "latest_career_family": performance["latest_career_family"] or pending_cluster_label,
         "latest_model_version": performance["latest_model_version"] or "n/a",
+        "latest_predicted_cluster": performance["latest_predicted_cluster"],
+        "latest_cluster_label": performance["latest_cluster_label"] or pending_cluster_label,
+        "latest_cluster_holland_code": performance["latest_cluster_holland_code"] or "N/A",
+        "latest_cluster_source": performance["latest_cluster_source"] or latest_source,
+        "latest_cluster_model_version": performance["latest_cluster_model_version"] or "n/a",
+        "latest_cluster_example_careers": performance["latest_cluster_example_careers"] or [],
     }
 
     return templates.TemplateResponse(
@@ -845,7 +1027,6 @@ def admin_user_performance_page(
             "user": user,
             "can_manage_user": current_user.role == "admin",
             "runs": performance["runs"],
-            "riasec": performance["latest_riasec"],
             "summary": summary,
         },
     )
@@ -857,13 +1038,23 @@ def admin_make_user_admin_page(
     request: Request,
     db: TelemetryRepository = Depends(get_db),
 ):
-    _require_admin_ui_user(request, db)
+    current_admin = _require_admin_ui_user(request, db)
+    existing_user = _require_user_or_404(db, user_id)
     user = db.set_user_role(user_id, "admin")
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found.",
         )
+    audit_log(
+        "USER_ROLE_CHANGED",
+        target_user_id=user.id,
+        target_username=user.username,
+        old_role=existing_user.role,
+        new_role=user.role,
+        via="admin_web",
+        **_principal_fields(current_admin, prefix="actor"),
+    )
 
     return RedirectResponse(url=f"/admin/users/{user_id}", status_code=status.HTTP_303_SEE_OTHER)
 
@@ -874,13 +1065,23 @@ def admin_make_user_standard_page(
     request: Request,
     db: TelemetryRepository = Depends(get_db),
 ):
-    _require_admin_ui_user(request, db)
+    current_admin = _require_admin_ui_user(request, db)
+    existing_user = _require_user_or_404(db, user_id)
     user = db.set_user_role(user_id, "user")
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found.",
         )
+    audit_log(
+        "USER_ROLE_CHANGED",
+        target_user_id=user.id,
+        target_username=user.username,
+        old_role=existing_user.role,
+        new_role=user.role,
+        via="admin_web",
+        **_principal_fields(current_admin, prefix="actor"),
+    )
 
     return RedirectResponse(url=f"/admin/users/{user_id}", status_code=status.HTTP_303_SEE_OTHER)
 
@@ -891,12 +1092,21 @@ def admin_delete_user(
     request: Request,
     db: TelemetryRepository = Depends(get_db),
 ):
-    _require_admin_ui_user(request, db)
+    current_admin = _require_admin_ui_user(request, db)
+    target_user = _require_user_or_404(db, user_id)
     deleted = db.delete_user(user_id)
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found.",
         )
+    audit_log(
+        "USER_DELETED",
+        target_user_id=target_user.id,
+        target_username=target_user.username,
+        target_role=target_user.role,
+        via="admin_web",
+        **_principal_fields(current_admin, prefix="actor"),
+    )
 
     return RedirectResponse(url="/admin/users", status_code=status.HTTP_303_SEE_OTHER)
