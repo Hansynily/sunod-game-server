@@ -3,7 +3,13 @@ from importlib.util import find_spec
 import logging.config
 from pathlib import Path
 import sys
-from create_admin_railway import main
+if os.getenv("ADMIN_USERNAME") and os.getenv("ADMIN_PASSWORD"):
+    try:
+        print("Running admin bootstrap...")
+        from create_admin_railway import main
+        main()
+    except Exception as e:
+        print(f"Admin bootstrap failed: {e}")
 
 
 from dotenv import load_dotenv
