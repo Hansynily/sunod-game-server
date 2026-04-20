@@ -37,7 +37,7 @@ def main() -> None:
     try:
         if os.getenv("ADMIN_USERNAME") and os.getenv("ADMIN_PASSWORD"):
             print("Running admin bootstrap...")
-            create_admin_main()
+            main()
         else:
             print("Skipping admin bootstrap (no env vars set)")
     except Exception as e:
