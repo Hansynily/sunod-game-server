@@ -2,59 +2,54 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>Sunod Telemetry - {{ user.username }} Dashboard</title>
+    <title>Sunod Player Report - {{ user.username }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="/static/fonts/outfit.css" rel="stylesheet" />
     <style>
         :root {
-            --bg: #f2ede4;
-            --bg2: #e8e2d8;
-            --panel: #faf8f3;
-            --fg: #141210;
-            --border: #141210;
-            --muted: #6b6560;
-            --accent: #d64f1e;
-            --accent-fg: #ffffff;
-            --shadow: 4px 4px 0 #141210;
-            --danger: #b63d1d;
-            --danger-fg: #ffffff;
-            --warning: #b76721;
+            --bg: #f4ede1;
+            --bg-2: #eadfce;
+            --panel: #fff9f1;
+            --text: #19130e;
+            --muted: #675f58;
+            --border: #19130e;
+            --accent: #d4552c;
+            --accent-soft: rgba(212, 85, 44, 0.14);
+            --success: #5f9d55;
+            --success-soft: rgba(95, 157, 85, 0.15);
+            --warning: #bf8a2f;
+            --warning-soft: rgba(191, 138, 47, 0.16);
+            --danger: #a34024;
+            --danger-soft: rgba(163, 64, 36, 0.16);
+            --shadow: 5px 5px 0 #19130e;
         }
 
-        [data-theme="dark"] {
-            --bg: #111210;
-            --bg2: #1c1e1a;
-            --panel: #181a17;
-            --fg: #ede8df;
-            --border: #ede8df;
-            --muted: #888078;
-            --accent: #e8622c;
-            --accent-fg: #ffffff;
-            --shadow: 4px 4px 0 #ede8df;
-            --danger: #ff8a65;
-            --danger-fg: #111210;
-            --warning: #f0a14e;
-        }
-
-        *, *::before, *::after {
+        * {
             box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            border-radius: 0;
         }
 
         body {
+            margin: 0;
             min-height: 100vh;
-            background: var(--bg);
-            color: var(--fg);
+            background:
+                radial-gradient(circle at top left, rgba(212, 85, 44, 0.14), transparent 22%),
+                linear-gradient(180deg, var(--bg), #efe4d4 100%);
+            color: var(--text);
             font-family: "Outfit", sans-serif;
-            transition: background 0.15s, color 0.15s;
         }
 
         .shell {
-            max-width: 1440px;
+            max-width: 1480px;
             margin: 0 auto;
-            padding: 1.5rem;
+            padding: 1.25rem;
+        }
+
+        .panel,
+        .metric,
+        .table-shell {
+            background: var(--panel);
+            border: 2px solid var(--border);
+            box-shadow: var(--shadow);
         }
 
         .topbar {
@@ -62,328 +57,349 @@
             justify-content: space-between;
             align-items: flex-start;
             gap: 1rem;
-            margin-bottom: 1.25rem;
+            margin-bottom: 1rem;
         }
 
-        .topbar-left,
-        .topbar-actions,
-        .meta-row,
-        .header-meta {
+        .title-panel {
+            padding: 1.35rem 1.45rem;
+            flex: 1;
+        }
+
+        .eyebrow {
+            display: inline-block;
+            color: var(--muted);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin: 0.6rem 0 0.35rem;
+            font-size: clamp(2.5rem, 5vw, 4.4rem);
+            letter-spacing: -0.06em;
+            line-height: 0.95;
+        }
+
+        .title-panel p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.65;
+            max-width: 54rem;
+        }
+
+        .top-actions,
+        .action-row,
+        .tag-row {
             display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
+            gap: 0.55rem;
             flex-wrap: wrap;
         }
 
-        .topbar-left form,
-        .topbar-actions form {
-            margin: 0;
-        }
-
-        .wordmark {
-            display: inline-flex;
-            align-items: center;
-            min-height: 44px;
-            padding: 0.75rem 0.95rem;
+        .button,
+        .mini-button {
             border: 2px solid var(--border);
             background: var(--panel);
-            color: var(--muted);
-            box-shadow: var(--shadow);
-            font-size: 0.72rem;
-            font-weight: 600;
-            letter-spacing: 0.2em;
+            color: var(--text);
+            font: inherit;
+            font-weight: 800;
+            letter-spacing: 0.1em;
             text-transform: uppercase;
-            white-space: nowrap;
-        }
-
-        .control-button {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 44px;
-            padding: 0.75rem 0.95rem;
-            border: 2px solid var(--border);
-            background: var(--panel);
-            color: var(--fg);
-            font-family: "Outfit", sans-serif;
-            font-size: 0.74rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            text-decoration: none;
-            white-space: nowrap;
             cursor: pointer;
             box-shadow: var(--shadow);
-            transition: transform 0.08s, box-shadow 0.08s, background 0.1s, color 0.1s;
+            transition: transform 0.08s ease, box-shadow 0.08s ease;
         }
 
-        .control-button:hover {
+        .button {
+            padding: 0.82rem 1rem;
+            min-height: 44px;
+        }
+
+        .mini-button {
+            padding: 0.64rem 0.8rem;
+            font-size: 0.71rem;
+            box-shadow: 4px 4px 0 var(--border);
+        }
+
+        .button:hover,
+        .mini-button:hover {
             transform: translate(-2px, -2px);
+        }
+
+        .button:hover {
+            box-shadow: 8px 8px 0 var(--border);
+        }
+
+        .mini-button:hover {
             box-shadow: 6px 6px 0 var(--border);
         }
 
-        .control-button:active {
+        .button:active,
+        .mini-button:active {
             transform: translate(4px, 4px);
             box-shadow: none;
         }
 
-        .control-button.danger {
+        .button.accent,
+        .mini-button.accent {
+            background: var(--accent);
+            color: white;
+        }
+
+        .mini-button.danger {
             background: var(--danger);
-            color: var(--danger-fg);
+            color: white;
         }
 
-        .control-button.accent {
-            background: var(--accent);
-            color: var(--accent-fg);
-        }
-
-        .static-label {
-            cursor: default;
-        }
-
-        .static-label:hover,
-        .static-label:active {
-            transform: none;
-            box-shadow: var(--shadow);
-        }
-
-        .avatar {
-            min-width: 44px;
-            height: 44px;
-            padding: 0 0.8rem;
-            border: 2px solid var(--border);
-            background: var(--panel);
-            color: var(--fg);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.95rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            box-shadow: var(--shadow);
-        }
-
-        .panel {
+        .banner {
             margin-bottom: 1rem;
-            background: var(--panel);
+            padding: 0.95rem 1rem;
             border: 2px solid var(--border);
-            box-shadow: var(--shadow);
+            line-height: 1.5;
         }
 
-        .card-title-block {
-            padding: 1.4rem 1.5rem 1.2rem;
-            border-bottom: 2px solid var(--border);
-            display: flex;
-            align-items: flex-start;
-            gap: 1rem;
+        .banner.notice {
+            background: var(--success-soft);
         }
 
-        .accent-bar {
-            width: 5px;
-            min-height: 60px;
-            background: var(--accent);
-            flex-shrink: 0;
-            margin-top: 0.15rem;
-        }
-
-        .title-text .eyebrow {
-            display: block;
-            margin-bottom: 0.45rem;
-            color: var(--muted);
-            font-size: 0.72rem;
-            font-weight: 600;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-        }
-
-        .title-text h1 {
-            font-size: clamp(2rem, 4vw, 2.7rem);
-            font-weight: 700;
-            letter-spacing: -0.03em;
-            line-height: 1;
-        }
-
-        .title-text p {
+        .banner-link {
             margin-top: 0.5rem;
-            color: var(--muted);
-            font-size: 0.95rem;
-            line-height: 1.55;
-            max-width: 62ch;
+            word-break: break-all;
         }
 
-        .panel-body {
-            padding: 1.1rem 1.5rem 1.3rem;
+        .banner-link a {
+            color: var(--text);
+            font-weight: 700;
         }
 
-        .meta-tag,
-        .chip,
-        .badge {
+        .banner.error {
+            background: var(--danger-soft);
+            color: var(--danger);
+        }
+
+        .header-panel {
+            padding: 1rem 1.1rem;
+            margin-bottom: 1rem;
+        }
+
+        .tag {
             display: inline-flex;
             align-items: center;
             padding: 0.34rem 0.58rem;
             border: 1.5px solid var(--border);
-            background: var(--bg2);
-            color: var(--fg);
+            background: #fff;
             font-size: 0.72rem;
-            font-weight: 600;
+            font-weight: 700;
             letter-spacing: 0.08em;
             text-transform: uppercase;
             white-space: nowrap;
         }
 
-        .meta-tag {
-            color: var(--muted);
+        .tag.pending {
+            background: var(--warning-soft);
         }
 
-        .chip,
-        .badge {
-            border-left: 4px solid var(--accent);
+        .tag.approved,
+        .tag.verified {
+            background: var(--success-soft);
         }
 
-        .chip.warning {
-            border-left-color: var(--warning);
-            color: var(--fg);
+        .tag.rejected,
+        .tag.expired {
+            background: var(--danger-soft);
         }
 
-        .chip.neutral,
-        .badge.neutral {
-            border-left-color: var(--muted);
-            color: var(--muted);
+        .tag.sent,
+        .tag.queued,
+        .tag.missing,
+        .tag.exempt {
+            background: var(--accent-soft);
         }
 
-        .badge.model {
-            border-left-color: var(--accent);
-        }
-
-        .cards {
+        .meta-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.75rem;
+            margin-top: 0.9rem;
+        }
+
+        .meta-item {
+            border: 1.5px solid var(--border);
+            padding: 0.85rem;
+            background: rgba(255, 255, 255, 0.6);
+        }
+
+        .meta-item strong {
+            display: block;
+            color: var(--muted);
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+        }
+
+        .meta-item span {
+            display: block;
+            margin-top: 0.35rem;
+            line-height: 1.45;
+            font-weight: 600;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 0.98fr 1.02fr;
             gap: 1rem;
+            align-items: start;
             margin-bottom: 1rem;
         }
 
-        .card {
-            background: var(--panel);
-            border: 2px solid var(--border);
-            box-shadow: var(--shadow);
+        .panel-body {
             padding: 1rem 1.1rem;
         }
 
-        .card-label {
-            margin-bottom: 0.55rem;
-            color: var(--muted);
-            font-size: 0.72rem;
-            font-weight: 600;
-            letter-spacing: 0.16em;
-            text-transform: uppercase;
-        }
-
-        .card-value {
-            font-size: clamp(1.9rem, 3vw, 2.45rem);
-            font-weight: 700;
-            line-height: 1;
-            letter-spacing: -0.03em;
-        }
-
-        .card-chip-row {
-            margin-top: 0.6rem;
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        .panel-heading {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 0.9rem;
-        }
-
         .panel-title {
-            font-size: 1.05rem;
-            font-weight: 700;
-            letter-spacing: -0.01em;
+            margin: 0 0 0.8rem;
+            font-size: 1.1rem;
+            letter-spacing: -0.02em;
         }
 
-        .detail-text,
-        .detail-line {
+        .detail {
             color: var(--muted);
-            line-height: 1.5;
+            line-height: 1.6;
         }
 
-        .detail-text {
-            margin-top: 0.9rem;
-            font-size: 0.92rem;
-        }
-
-        .detail-line {
-            margin-top: 0.4rem;
-            font-size: 0.84rem;
-        }
-
-        .riasec-grid {
+        .form-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-            gap: 0.85rem;
+            gap: 0.8rem;
         }
 
-        .riasec-item {
-            border: 1px dashed var(--border);
-            padding: 0.9rem;
-            background: transparent;
-        }
-
-        .riasec-label {
+        label {
+            display: block;
             margin-bottom: 0.35rem;
             color: var(--muted);
             font-size: 0.72rem;
-            font-weight: 600;
+            font-weight: 700;
             letter-spacing: 0.14em;
             text-transform: uppercase;
         }
 
-        .riasec-value {
-            margin-bottom: 0.55rem;
-            font-size: 1.6rem;
+        input,
+        textarea {
+            width: 100%;
+            padding: 0.85rem 0.95rem;
+            border: 2px solid var(--border);
+            background: #fffdfa;
+            color: var(--text);
+            font: inherit;
+        }
+
+        textarea {
+            min-height: 90px;
+            resize: vertical;
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .section-divider {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            margin: 1.25rem 0 0.85rem;
+            color: var(--muted);
+            font-size: 0.74rem;
             font-weight: 700;
-            letter-spacing: -0.03em;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
         }
 
-        .riasec-track {
+        .section-divider::after {
+            content: "";
+            flex: 1;
+            height: 2px;
+            background: rgba(25, 19, 14, 0.18);
+        }
+
+        .metric {
+            padding: 1rem 1.1rem;
+        }
+
+        .metric-label {
+            color: var(--muted);
+            font-size: 0.74rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .metric-value {
+            margin-top: 0.55rem;
+            font-size: clamp(1.8rem, 3vw, 2.5rem);
+            letter-spacing: -0.05em;
+            font-weight: 800;
+        }
+
+        .metric-sub {
+            margin-top: 0.4rem;
+            color: var(--muted);
+            font-size: 0.84rem;
+            line-height: 1.45;
+        }
+
+        .riasec-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.8rem;
+        }
+
+        .riasec-item {
+            border: 1.5px dashed var(--border);
+            padding: 0.9rem;
+            background: rgba(255, 255, 255, 0.45);
+        }
+
+        .riasec-item strong {
+            display: block;
+            color: var(--muted);
+            font-size: 0.72rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .riasec-item span {
+            display: block;
+            margin-top: 0.4rem;
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+        }
+
+        .track {
+            margin-top: 0.55rem;
             height: 12px;
-            border: 1px solid var(--border);
-            background: var(--bg2);
-            overflow: hidden;
+            border: 1.5px solid var(--border);
+            background: var(--bg-2);
         }
 
-        .riasec-fill {
+        .fill {
             height: 100%;
             background: var(--accent);
         }
 
         .table-shell {
-            border: 2px solid var(--border);
-            background: var(--panel);
-            box-shadow: var(--shadow);
             overflow: hidden;
         }
 
-        .table-top {
+        .table-head {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 1rem;
+            gap: 0.8rem;
             padding: 1rem 1.1rem;
             border-bottom: 2px solid var(--border);
-        }
-
-        .table-title {
-            font-size: 0.9rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
         }
 
         table {
@@ -397,24 +413,15 @@
             border-bottom: 1.5px solid var(--border);
             text-align: left;
             vertical-align: top;
-            font-size: 0.92rem;
+            font-size: 0.93rem;
         }
 
         th {
-            background: var(--bg2);
+            background: var(--bg-2);
             color: var(--muted);
-            font-size: 0.72rem;
-            font-weight: 600;
-            letter-spacing: 0.15em;
+            font-size: 0.73rem;
+            letter-spacing: 0.14em;
             text-transform: uppercase;
-        }
-
-        tbody tr:hover {
-            background: var(--bg2);
-        }
-
-        tbody tr:last-child td {
-            border-bottom: 0;
         }
 
         .muted {
@@ -422,35 +429,34 @@
         }
 
         .empty {
+            padding: 1.5rem;
             text-align: center;
             color: var(--muted);
-            padding: 1.4rem;
         }
 
-        @media (max-width: 980px) {
-            .shell {
-                padding: 1.25rem;
+        @media (max-width: 1180px) {
+            .layout,
+            .metrics,
+            .meta-grid,
+            .riasec-grid {
+                grid-template-columns: 1fr 1fr;
             }
+        }
 
-            .topbar,
-            .panel-heading {
+        @media (max-width: 920px) {
+            .topbar {
                 flex-direction: column;
-                align-items: stretch;
             }
 
-            .topbar-left,
-            .topbar-actions {
-                justify-content: flex-start;
+            .layout,
+            .metrics,
+            .meta-grid,
+            .riasec-grid {
+                grid-template-columns: 1fr;
             }
         }
 
-        @media (max-width: 900px) {
-            .table-shell {
-                border: 0;
-                box-shadow: none;
-                background: transparent;
-            }
-
+        @media (max-width: 860px) {
             table,
             thead,
             tbody,
@@ -468,6 +474,7 @@
             tbody {
                 display: grid;
                 gap: 1rem;
+                padding: 1rem;
             }
 
             tr {
@@ -477,237 +484,364 @@
             }
 
             td {
-                display: flex;
-                align-items: flex-start;
-                justify-content: space-between;
-                gap: 1rem;
-                padding: 0.85rem 1rem;
-                border-bottom: 1.5px solid var(--border);
+                display: grid;
+                gap: 0.35rem;
+                padding: 0.8rem 0.95rem;
             }
 
             td::before {
                 content: attr(data-label);
-                flex: 0 0 42%;
                 color: var(--muted);
                 font-size: 0.72rem;
-                font-weight: 600;
-                letter-spacing: 0.12em;
+                font-weight: 700;
                 text-transform: uppercase;
-            }
-
-            td[data-label="Source"],
-            td[data-label="Career Family"] {
-                display: block;
-            }
-
-            td[data-label="Source"]::before,
-            td[data-label="Career Family"]::before {
-                display: block;
-                margin-bottom: 0.5rem;
-            }
-
-            td:last-child {
-                border-bottom: 0;
-            }
-
-            .empty {
-                border: 2px solid var(--border);
-                background: var(--panel);
-                box-shadow: var(--shadow);
+                letter-spacing: 0.12em;
             }
         }
     </style>
 </head>
 <body>
+{% set latest_riasec = summary.latest_riasec %}
+{% set scores = [latest_riasec.r, latest_riasec.i, latest_riasec.a, latest_riasec.s, latest_riasec.e, latest_riasec.c] %}
+{% set peak = scores | max %}
+{% set base = peak if peak > 0 else 1 %}
+
 <div class="shell">
     <div class="topbar">
-        <div class="topbar-left">
-            <span class="wordmark">Sunod / Telemetry</span>
+        <section class="panel title-panel">
+            <span class="eyebrow">Sunod / Player report</span>
+            <h1>{{ user.username }}</h1>
+        </section>
+
+        <div class="top-actions">
             {% if can_manage_user %}
-                <a href="/admin/users" class="control-button">Back to Players</a>
-            {% else %}
-                <span class="control-button static-label">My Dashboard</span>
-            {% endif %}
-        </div>
-        <div class="topbar-actions">
-            {% if can_manage_user %}
-                {% if user.role == "admin" %}
-                    <form method="post" action="/admin/users/{{ user.id }}/make-user">
-                        <button type="submit" class="control-button accent">Make User</button>
-                    </form>
-                {% else %}
-                    <form method="post" action="/admin/users/{{ user.id }}/make-admin">
-                        <button type="submit" class="control-button accent">Make Admin</button>
-                    </form>
-                {% endif %}
-                <form method="post" action="/admin/users/{{ user.id }}/delete" onsubmit="return confirm('Delete this user and all telemetry records? This cannot be undone.');">
-                    <button type="submit" class="control-button danger">Delete User</button>
-                </form>
+                <a href="/admin/users" class="button">Back to players</a>
+                <a href="/admin/quest-logs?user_id={{ user.id }}" class="button accent">Quest logs</a>
             {% endif %}
             <form method="post" action="/admin/logout">
-                <button type="submit" class="control-button">Logout {{ current_user.username }}</button>
+                <button class="button" type="submit">Logout {{ current_user.username }}</button>
             </form>
-            <button id="theme-toggle" class="control-button" type="button">Dark mode</button>
-            <div class="avatar">{{ user.username[0]|upper if user.username else "P" }}</div>
         </div>
     </div>
 
-    <section class="panel">
-        <div class="card-title-block">
-            <div class="accent-bar"></div>
-            <div class="title-text">
-                <span class="eyebrow">Player Performance</span>
-                <h1>{{ user.username }}</h1>
-            </div>
-        </div>
-        <div class="panel-body">
-            <div class="header-meta">
-                <span class="meta-tag">ID: USR-{{ "%03d"|format(user.id) }}</span>
-                <span class="meta-tag">Email: {{ user.email or "n/a" }}</span>
-                <span class="meta-tag">Role: {{ user.role }}</span>
-                <span class="meta-tag">Created: {{ user.created_at }}</span>
-                <span class="meta-tag">Last Login: {{ user.last_login or "n/a" }}</span>
-            </div>
-        </div>
-    </section>
-
-    <section class="cards">
-        <article class="card">
-            <div class="card-label">Total Runs</div>
-            <div class="card-value">{{ summary.total_runs }}</div>
-        </article>
-        <article class="card">
-            <div class="card-label">Clear Rate</div>
-            <div class="card-value">{{ '%.0f'|format(summary.avg_clear_rate) }}%</div>
-        </article>
-        <article class="card">
-            <div class="card-label">Avg Time</div>
-            <div class="card-value">{{ '%.0f'|format(summary.avg_time_seconds) }}s</div>
-            <div class="card-chip-row">
-                <span class="chip warning">{{ '%.1f'|format(summary.avg_stars_per_run) }} avg stars</span>
-            </div>
-        </article>
-        <article class="card">
-            <div class="card-label">Latest Cluster</div>
-            <div class="card-value">
-                {% if summary.latest_predicted_cluster is not none %}
-                    Cluster {{ summary.latest_predicted_cluster }}
-                {% else %}
-                    {{ summary.latest_cluster_label }}
-                {% endif %}
-            </div>
-            <div class="card-chip-row">
-                {% if summary.latest_predicted_cluster is none %}
-                    {% if summary.total_runs > 0 %}
-                        <span class="chip neutral">Pending cluster result</span>
-                    {% else %}
-                        <span class="chip neutral">No runs yet</span>
-                    {% endif %}
-                {% else %}
-                    <span class="chip">{{ summary.latest_cluster_label }}</span>
-                {% endif %}
-            </div>
-        </article>
-    </section>
-
-    <section class="panel">
-        <div class="panel-body">
-            <div class="panel-heading">
-                <h2 class="panel-title">Latest Cluster Output</h2>
-            </div>
-            <div class="meta-row">
-                {% if summary.latest_predicted_cluster is not none %}
-                    <span class="chip">Cluster: {{ summary.latest_predicted_cluster }}</span>
-                    <span class="chip">Holland: {{ summary.latest_cluster_holland_code }}</span>
-                    <span class="chip">Career Family: {{ summary.latest_cluster_label }}</span>
-                    <span class="chip">Source: {{ summary.latest_cluster_source }}</span>
-                    <span class="chip neutral">Version: {{ summary.latest_cluster_model_version }}</span>
-                {% elif summary.total_runs > 0 %}
-                    <span class="chip warning">Pending cluster result</span>
-                    <span class="chip neutral">Source: {{ summary.latest_source }}</span>
-                {% else %}
-                    <span class="chip neutral">No cluster yet</span>
-                {% endif %}
-            </div>
-            {% if summary.latest_cluster_example_careers %}
-                <p class="detail-text">Example careers: {{ summary.latest_cluster_example_careers | join(", ") }}</p>
-            {% elif summary.latest_predicted_cluster is not none %}
-                <p class="detail-text">This cluster is treated as a broad or outlier profile, so no single career list is shown.</p>
-            {% elif summary.total_runs > 0 %}
-                <p class="detail-text">This run is recorded, but a cluster result has not been attached yet.</p>
+    {% if notice_message %}
+        <div class="banner notice">
+            <div>{{ notice_message }}</div>
+            {% if notice_link %}
+                <div class="banner-link">
+                    <a href="{{ notice_link }}" target="_blank" rel="noopener noreferrer">{{ notice_link }}</a>
+                </div>
             {% endif %}
         </div>
+    {% endif %}
+    {% if error_message %}
+        <div class="banner error">{{ error_message }}</div>
+    {% endif %}
+
+    <div class="section-divider">Account</div>
+
+    <section class="panel header-panel">
+        <div class="tag-row">
+            <span class="tag">{{ user.role }}</span>
+            <span class="tag {{ summary.approval_state }}">{{ summary.approval_state }}</span>
+            <span class="tag {{ summary.email_verification_state }}">{{ summary.email_verification_state }}</span>
+        </div>
+
+        <div class="meta-grid">
+            <article class="meta-item">
+                <strong>User ID</strong>
+                <span>USR-{{ "%03d"|format(user.id) }}</span>
+            </article>
+            <article class="meta-item">
+                <strong>Name</strong>
+                <span>{{ summary.name or user.name or "No name yet" }}</span>
+            </article>
+            <article class="meta-item">
+                <strong>Birthdate</strong>
+                <span>{{ summary.birthdate or user.birthdate or "No birthdate yet" }}</span>
+            </article>
+            <article class="meta-item">
+                <strong>Gender</strong>
+                <span>{{ summary.gender or user.gender or "No gender yet" }}</span>
+            </article>
+            <article class="meta-item">
+                <strong>Email</strong>
+                <span>{{ user.email or "No email yet" }}</span>
+            </article>
+            <article class="meta-item">
+                <strong>Created</strong>
+                <span>{{ summary["created_at"] }}</span>
+            </article>
+            <article class="meta-item">
+                <strong>Last login</strong>
+                <span>{{ summary["last_login"] or "No login yet" }}</span>
+            </article>
+        </div>
     </section>
 
-    {% set latest_riasec = runs[0].riasec_scores if runs else none %}
-    {% set realistic = latest_riasec.r if latest_riasec and latest_riasec.r is defined else 0 %}
-    {% set investigative = latest_riasec.i if latest_riasec and latest_riasec.i is defined else 0 %}
-    {% set artistic = latest_riasec.a if latest_riasec and latest_riasec.a is defined else 0 %}
-    {% set social = latest_riasec.s if latest_riasec and latest_riasec.s is defined else 0 %}
-    {% set enterprising = latest_riasec.e if latest_riasec and latest_riasec.e is defined else 0 %}
-    {% set conventional = latest_riasec.c if latest_riasec and latest_riasec.c is defined else 0 %}
-    {% set riasec_peak = [realistic, investigative, artistic, social, enterprising, conventional] | max %}
-    {% set riasec_base = riasec_peak if riasec_peak > 0 else 1 %}
+    <div class="section-divider">Access</div>
 
-    <section class="panel">
-        <div class="panel-body">
-            <div class="panel-heading">
-                <h2 class="panel-title">Latest RIASEC Profile</h2>
-                {% if runs %}
-                    <span class="chip neutral">From latest recorded session</span>
-                {% else %}
-                    <span class="chip neutral">No session data yet</span>
+    <section class="layout">
+        <article class="panel">
+            <div class="panel-body">
+                <h2 class="panel-title">Lifecycle control</h2>
+                <div class="meta-grid">
+                    <article class="meta-item">
+                        <strong>Approval state</strong>
+                        <span>{{ summary.approval_state }}</span>
+                    </article>
+                    <article class="meta-item">
+                        <strong>Approved at</strong>
+                        <span>{{ summary.approved_at or "n/a" }}</span>
+                    </article>
+                    <article class="meta-item">
+                        <strong>Verification sent</strong>
+                        <span>{{ summary.verification_sent_at or "n/a" }}</span>
+                    </article>
+                    <article class="meta-item">
+                        <strong>Verified at</strong>
+                        <span>{{ summary.verified_at or "n/a" }}</span>
+                    </article>
+                </div>
+
+                {% if summary.rejection_reason %}
+                    <p class="detail"><strong>Rejection reason:</strong> {{ summary.rejection_reason }}</p>
+                {% endif %}
+
+                {% if can_manage_user %}
+                    <div class="action-row" style="margin-top: 1rem;">
+                        {% if user.role == "admin" %}
+                            <form method="post" action="/admin/users/{{ user.id }}/make-user">
+                                <input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" />
+                                <button class="mini-button accent" type="submit">Make user</button>
+                            </form>
+                        {% else %}
+                            <form method="post" action="/admin/users/{{ user.id }}/make-admin">
+                                <input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" />
+                                <button class="mini-button accent" type="submit">Make admin</button>
+                            </form>
+                        {% endif %}
+
+                        <form method="post" action="/admin/users/{{ user.id }}/approve">
+                            <input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" />
+                            <button class="mini-button" type="submit">Approve</button>
+                        </form>
+
+                        <form method="post" action="/admin/users/{{ user.id }}/send-verification">
+                            <input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" />
+                            <button class="mini-button" type="submit">Send verify</button>
+                        </form>
+
+                        <form method="post" action="/admin/users/{{ user.id }}/resend-verification">
+                            <input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" />
+                            <button class="mini-button" type="submit">Resend link</button>
+                        </form>
+
+                        <form method="post" action="/admin/users/{{ user.id }}/mark-verified">
+                            <input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" />
+                            <button class="mini-button" type="submit">Manual verify</button>
+                        </form>
+
+                        <form method="post" action="/admin/users/{{ user.id }}/delete" onsubmit="return confirm('Delete this user and all telemetry records? This cannot be undone.');">
+                            <input type="hidden" name="redirect_to" value="/admin/users" />
+                            <button class="mini-button danger" type="submit">Delete user</button>
+                        </form>
+                    </div>
                 {% endif %}
             </div>
-            <div class="riasec-grid">
-                <article class="riasec-item">
-                    <div class="riasec-label">Realistic</div>
-                    <div class="riasec-value">{{ realistic }}</div>
-                    <div class="riasec-track"><div class="riasec-fill" style="width: {{ '%.0f'|format(realistic / riasec_base * 100) }}%;"></div></div>
-                </article>
-                <article class="riasec-item">
-                    <div class="riasec-label">Investigative</div>
-                    <div class="riasec-value">{{ investigative }}</div>
-                    <div class="riasec-track"><div class="riasec-fill" style="width: {{ '%.0f'|format(investigative / riasec_base * 100) }}%;"></div></div>
-                </article>
-                <article class="riasec-item">
-                    <div class="riasec-label">Artistic</div>
-                    <div class="riasec-value">{{ artistic }}</div>
-                    <div class="riasec-track"><div class="riasec-fill" style="width: {{ '%.0f'|format(artistic / riasec_base * 100) }}%;"></div></div>
-                </article>
-                <article class="riasec-item">
-                    <div class="riasec-label">Social</div>
-                    <div class="riasec-value">{{ social }}</div>
-                    <div class="riasec-track"><div class="riasec-fill" style="width: {{ '%.0f'|format(social / riasec_base * 100) }}%;"></div></div>
-                </article>
-                <article class="riasec-item">
-                    <div class="riasec-label">Enterprising</div>
-                    <div class="riasec-value">{{ enterprising }}</div>
-                    <div class="riasec-track"><div class="riasec-fill" style="width: {{ '%.0f'|format(enterprising / riasec_base * 100) }}%;"></div></div>
-                </article>
-                <article class="riasec-item">
-                    <div class="riasec-label">Conventional</div>
-                    <div class="riasec-value">{{ conventional }}</div>
-                    <div class="riasec-track"><div class="riasec-fill" style="width: {{ '%.0f'|format(conventional / riasec_base * 100) }}%;"></div></div>
-                </article>
+        </article>
+
+        <article class="panel">
+            <div class="panel-body">
+                <h2 class="panel-title">Admin actions</h2>
+                {% if can_manage_user %}
+                    <div class="form-grid">
+                        <form method="post" action="/admin/users/{{ user.id }}/email">
+                            <input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" />
+                            <label for="email">Set or update email</label>
+                            <input id="email" name="email" type="email" value="{{ user.email or '' }}" placeholder="player@example.com" required />
+                            <div class="action-row" style="margin-top: 0.65rem;">
+                                <button class="mini-button accent" type="submit">Save email</button>
+                            </div>
+                        </form>
+
+                        <form method="post" action="/admin/users/{{ user.id }}/reject">
+                            <input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" />
+                            <label for="rejection_reason">Reject account</label>
+                            <textarea id="rejection_reason" name="rejection_reason" placeholder="Optional reason shown in blocked login messages."></textarea>
+                            <div class="action-row" style="margin-top: 0.65rem;">
+                                <button class="mini-button danger" type="submit">Reject account</button>
+                            </div>
+                        </form>
+                    </div>
+                {% endif %}
             </div>
-        </div>
+        </article>
     </section>
 
+    <div class="section-divider">Performance</div>
+
+    <section class="metrics">
+        <article class="metric">
+            <div class="metric-label">Total runs</div>
+            <div class="metric-value">{{ summary.total_runs }}</div>
+            <div class="metric-sub">Sessions</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Clear rate</div>
+            <div class="metric-value">{{ '%.0f'|format(summary.avg_clear_rate) }}%</div>
+            <div class="metric-sub">Completion</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Average time</div>
+            <div class="metric-value">{{ '%.0f'|format(summary.avg_time_seconds) }}s</div>
+            <div class="metric-sub">{{ '%.1f'|format(summary.avg_stars_per_run) }} avg stars</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Latest cluster</div>
+            <div class="metric-value">
+                {% if summary.latest_predicted_cluster is not none %}
+                    {{ summary.latest_predicted_cluster }}
+                {% else %}
+                    -
+                {% endif %}
+            </div>
+            <div class="metric-sub">{{ summary.latest_cluster_label or "Pending cluster result" }}</div>
+        </article>
+    </section>
+
+    <div class="section-divider">Results</div>
+
+    <section class="layout">
+        <article class="panel">
+            <div class="panel-body">
+                <h2 class="panel-title">Latest cluster output</h2>
+                <div class="tag-row">
+                    {% if summary.latest_predicted_cluster is not none %}
+                        <span class="tag verified">Cluster {{ summary.latest_predicted_cluster }}</span>
+                        <span class="tag">{{ summary.latest_cluster_label }}</span>
+                        <span class="tag">{{ summary.latest_cluster_holland_code or "N/A" }}</span>
+                    {% elif summary.total_runs > 0 %}
+                        <span class="tag pending">Pending cluster result</span>
+                    {% else %}
+                        <span class="tag missing">No runs yet</span>
+                    {% endif %}
+                </div>
+                <p class="detail">
+                    Source: {{ summary.latest_cluster_source or summary.latest_source or "n/a" }}<br />
+                    Model version: {{ summary.latest_cluster_model_version or summary.latest_model_version or "n/a" }}<br />
+                    Career family: {{ summary.latest_cluster_label or "Pending cluster result" }}
+                </p>
+                {% if summary.latest_cluster_example_careers %}
+                    <p class="detail">Example careers: {{ summary.latest_cluster_example_careers | join(", ") }}</p>
+                {% endif %}
+            </div>
+        </article>
+
+        <article class="panel">
+            <div class="panel-body">
+                <h2 class="panel-title">Latest RIASEC profile</h2>
+                <div class="riasec-grid">
+                    <article class="riasec-item">
+                        <strong>Realistic</strong>
+                        <span>{{ latest_riasec.r }}</span>
+                        <div class="track"><div class="fill" style="width: {{ '%.0f'|format(latest_riasec.r / base * 100) }}%;"></div></div>
+                    </article>
+                    <article class="riasec-item">
+                        <strong>Investigative</strong>
+                        <span>{{ latest_riasec.i }}</span>
+                        <div class="track"><div class="fill" style="width: {{ '%.0f'|format(latest_riasec.i / base * 100) }}%;"></div></div>
+                    </article>
+                    <article class="riasec-item">
+                        <strong>Artistic</strong>
+                        <span>{{ latest_riasec.a }}</span>
+                        <div class="track"><div class="fill" style="width: {{ '%.0f'|format(latest_riasec.a / base * 100) }}%;"></div></div>
+                    </article>
+                    <article class="riasec-item">
+                        <strong>Social</strong>
+                        <span>{{ latest_riasec.s }}</span>
+                        <div class="track"><div class="fill" style="width: {{ '%.0f'|format(latest_riasec.s / base * 100) }}%;"></div></div>
+                    </article>
+                    <article class="riasec-item">
+                        <strong>Enterprising</strong>
+                        <span>{{ latest_riasec.e }}</span>
+                        <div class="track"><div class="fill" style="width: {{ '%.0f'|format(latest_riasec.e / base * 100) }}%;"></div></div>
+                    </article>
+                    <article class="riasec-item">
+                        <strong>Conventional</strong>
+                        <span>{{ latest_riasec.c }}</span>
+                        <div class="track"><div class="fill" style="width: {{ '%.0f'|format(latest_riasec.c / base * 100) }}%;"></div></div>
+                    </article>
+                </div>
+            </div>
+        </article>
+    </section>
+
+    <div class="section-divider">Quest Logs</div>
+
     <section class="table-shell">
-        <div class="table-top">
-            <span class="table-title">Session Runs</span>
-            <span class="chip neutral">{{ summary.total_runs }} recorded runs</span>
+        <div class="table-head">
+            <strong>Quest attempt history</strong>
+            <span class="tag">{{ quest_attempts|length }} recorded attempt{{ "" if quest_attempts|length == 1 else "s" }}</span>
         </div>
+
         <table>
             <thead>
             <tr>
-                <th>Session ID</th>
-                <th>Recorded At</th>
+                <th>Quest</th>
+                <th>Result</th>
+                <th>Recorded at</th>
+                <th>Time</th>
+                <th>Skills used</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% if quest_attempts %}
+                {% for attempt in quest_attempts %}
+                    <tr>
+                        <td data-label="Quest">
+                            <div class="stack">
+                                <div class="user-name">{{ attempt.quest_name }}</div>
+                                <div class="muted">{{ attempt.quest_id }}</div>
+                            </div>
+                        </td>
+                        <td data-label="Result">
+                            <div class="tag-row">
+                                <span class="tag {{ 'verified' if attempt.success == 1 else 'rejected' }}">{{ attempt.outcome_label }}</span>
+                                <span class="tag">{{ attempt.quest_result }}</span>
+                            </div>
+                        </td>
+                        <td data-label="Recorded at">{{ attempt.effective_at }}</td>
+                        <td data-label="Time">{{ attempt.time_spent_seconds }}s</td>
+                        <td data-label="Skills used">{{ attempt.skills_used_summary }}</td>
+                    </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="5" class="empty">No quest attempts recorded for this player yet.</td>
+                </tr>
+            {% endif %}
+            </tbody>
+        </table>
+    </section>
+
+    <div class="section-divider">Run History</div>
+
+    <section class="table-shell">
+        <div class="table-head">
+            <strong>Session run history</strong>
+            <span class="tag">{{ summary.total_runs }} recorded run{{ "" if summary.total_runs == 1 else "s" }}</span>
+        </div>
+
+        <table>
+            <thead>
+            <tr>
+                <th>Session</th>
+                <th>Recorded at</th>
                 <th>Source</th>
-                <th>Cluster</th>
-                <th>Career Family</th>
-                <th>Time (s)</th>
+                <th>Result</th>
+                <th>Holland</th>
+                <th>Time</th>
                 <th>Cleared</th>
                 <th>Stars</th>
             </tr>
@@ -716,32 +850,12 @@
             {% if runs %}
                 {% for run in runs %}
                     <tr>
-                        <td data-label="Session ID" class="muted">{{ run.session_id }}</td>
-                        <td data-label="Recorded At" class="muted">{{ run.created_at }}</td>
-                        <td data-label="Source">
-                            {% if run.predicted_cluster is not none %}
-                                <span class="badge model">{{ run.cluster_source }}</span>
-                            {% else %}
-                                <span class="badge neutral">{{ run.source }}</span>
-                            {% endif %}
-                        </td>
-                        <td data-label="Cluster">
-                            {% if run.predicted_cluster is not none %}
-                                Cluster {{ run.predicted_cluster }}
-                            {% else %}
-                                Pending
-                            {% endif %}
-                        </td>
-                        <td data-label="Career Family">
-                            {% if run.cluster_label %}
-                                {{ run.cluster_label }}
-                                <div class="detail-line">Holland {{ run.cluster_holland_code }}</div>
-                            {% else %}
-                                Pending cluster result
-                                <div class="detail-line">No cluster attached yet</div>
-                            {% endif %}
-                        </td>
-                        <td data-label="Time (s)">{{ '%.0f'|format(run.total_time_spent_seconds) }}</td>
+                        <td data-label="Session">{{ run.session_id }}</td>
+                        <td data-label="Recorded at">{{ run.created_at }}</td>
+                        <td data-label="Source">{{ run.cluster_source or run.source }}</td>
+                        <td data-label="Result">{{ run.cluster_label or "Pending cluster result" }}</td>
+                        <td data-label="Holland">{{ run.cluster_holland_code or run.holland_code or "N/A" }}</td>
+                        <td data-label="Time">{{ '%.0f'|format(run.total_time_spent_seconds) }}s</td>
                         <td data-label="Cleared">{{ run.rounds_cleared }}/{{ run.rounds_attempted }}</td>
                         <td data-label="Stars">{{ run.total_stars }}</td>
                     </tr>
@@ -755,26 +869,5 @@
         </table>
     </section>
 </div>
-
-<script>
-    (function () {
-        const root = document.documentElement;
-        const toggle = document.getElementById("theme-toggle");
-        const key = "sunod_theme";
-
-        function applyTheme(theme) {
-            root.setAttribute("data-theme", theme);
-            toggle.textContent = theme === "light" ? "Dark mode" : "Light mode";
-        }
-
-        applyTheme(localStorage.getItem(key) || "light");
-
-        toggle.addEventListener("click", function () {
-            const next = root.getAttribute("data-theme") === "light" ? "dark" : "light";
-            applyTheme(next);
-            localStorage.setItem(key, next);
-        });
-    })();
-</script>
 </body>
 </html>

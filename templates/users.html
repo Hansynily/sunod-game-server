@@ -2,268 +2,289 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>Sunod Telemetry - Players</title>
+    <title>Sunod Admin Players</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="/static/fonts/outfit.css" rel="stylesheet" />
     <style>
         :root {
-            --bg: #f2ede4;
-            --bg2: #e8e2d8;
-            --panel: #faf8f3;
-            --fg: #141210;
-            --border: #141210;
-            --muted: #6b6560;
-            --accent: #d64f1e;
-            --accent-fg: #ffffff;
-            --shadow: 4px 4px 0 #141210;
-            --danger: #b63d1d;
-            --danger-fg: #ffffff;
+            --bg: #f3ecdf;
+            --bg-2: #e7dbc6;
+            --panel: #fffaf1;
+            --text: #18120d;
+            --muted: #675e56;
+            --border: #18120d;
+            --accent: #d1542a;
+            --accent-soft: rgba(209, 84, 42, 0.14);
+            --success: #5f9f52;
+            --success-soft: rgba(95, 159, 82, 0.14);
+            --warning: #c6892f;
+            --warning-soft: rgba(198, 137, 47, 0.16);
+            --danger: #a44222;
+            --danger-soft: rgba(164, 66, 34, 0.16);
+            --shadow: 5px 5px 0 #18120d;
         }
 
-        [data-theme="dark"] {
-            --bg: #111210;
-            --bg2: #1c1e1a;
-            --panel: #181a17;
-            --fg: #ede8df;
-            --border: #ede8df;
-            --muted: #888078;
-            --accent: #e8622c;
-            --accent-fg: #ffffff;
-            --shadow: 4px 4px 0 #ede8df;
-            --danger: #ff8a65;
-            --danger-fg: #111210;
-        }
-
-        *, *::before, *::after {
+        * {
             box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            border-radius: 0;
         }
 
         body {
+            margin: 0;
             min-height: 100vh;
-            background: var(--bg);
-            color: var(--fg);
+            background:
+                radial-gradient(circle at top right, rgba(209, 84, 42, 0.13), transparent 24%),
+                linear-gradient(180deg, var(--bg), #efe3d0 100%);
+            color: var(--text);
             font-family: "Outfit", sans-serif;
-            transition: background 0.15s, color 0.15s;
         }
 
         .shell {
-            max-width: 1440px;
+            max-width: 1480px;
             margin: 0 auto;
-            padding: 1.5rem;
+            padding: 1.25rem;
+        }
+
+        .panel,
+        .metric,
+        .toolbar,
+        .table-shell {
+            background: var(--panel);
+            border: 2px solid var(--border);
+            box-shadow: var(--shadow);
         }
 
         .topbar {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
             gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .topbar-copy {
-            display: flex;
             align-items: flex-start;
-            gap: 1rem;
-            min-width: 0;
+            margin-bottom: 1rem;
         }
 
-        .accent-bar {
-            width: 5px;
-            min-height: 74px;
-            background: var(--accent);
-            flex-shrink: 0;
-            margin-top: 0.1rem;
+        .title-panel {
+            padding: 1.35rem 1.45rem;
+            flex: 1;
         }
 
-        .wordmark {
-            display: block;
+        .eyebrow {
+            display: inline-block;
             font-size: 0.72rem;
-            font-weight: 600;
-            letter-spacing: 0.2em;
+            font-weight: 700;
+            letter-spacing: 0.18em;
             text-transform: uppercase;
             color: var(--muted);
-            margin-bottom: 0.45rem;
         }
 
-        .page-title h1 {
-            font-size: clamp(2rem, 4vw, 2.8rem);
-            font-weight: 700;
-            letter-spacing: -0.03em;
-            line-height: 1;
-            margin-bottom: 0.5rem;
+        h1 {
+            margin: 0.65rem 0 0.45rem;
+            font-size: clamp(2.4rem, 5vw, 4rem);
+            letter-spacing: -0.06em;
+            line-height: 0.95;
         }
 
-        .page-title p {
-            max-width: 62ch;
-            font-size: 0.95rem;
-            line-height: 1.55;
-            color: var(--muted);
-        }
-
-        .topbar-actions,
         .actions {
             display: flex;
-            align-items: flex-start;
             gap: 0.75rem;
             flex-wrap: wrap;
         }
 
-        .topbar-actions form,
-        .actions form {
-            margin: 0;
-        }
-
-        .control-button,
-        .table-button {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 44px;
-            padding: 0.75rem 0.95rem;
+        .button,
+        .mini-button,
+        .filter-button {
             border: 2px solid var(--border);
             background: var(--panel);
-            color: var(--fg);
-            font-family: "Outfit", sans-serif;
-            font-size: 0.74rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
+            color: var(--text);
+            font: inherit;
+            font-weight: 800;
+            letter-spacing: 0.1em;
             text-transform: uppercase;
-            text-decoration: none;
-            white-space: nowrap;
             cursor: pointer;
             box-shadow: var(--shadow);
-            transition: transform 0.08s, box-shadow 0.08s, background 0.1s, color 0.1s;
+            transition: transform 0.08s ease, box-shadow 0.08s ease;
         }
 
-        .control-button:hover,
-        .table-button:hover {
+        .button,
+        .filter-button {
+            min-height: 44px;
+            padding: 0.8rem 1rem;
+        }
+
+        .mini-button {
+            padding: 0.62rem 0.78rem;
+            font-size: 0.71rem;
+            box-shadow: 4px 4px 0 var(--border);
+        }
+
+        .button:hover,
+        .mini-button:hover,
+        .filter-button:hover {
             transform: translate(-2px, -2px);
+        }
+
+        .button:hover,
+        .filter-button:hover {
+            box-shadow: 8px 8px 0 var(--border);
+        }
+
+        .mini-button:hover {
             box-shadow: 6px 6px 0 var(--border);
         }
 
-        .control-button:active,
-        .table-button:active {
+        .button:active,
+        .mini-button:active,
+        .filter-button:active {
             transform: translate(4px, 4px);
             box-shadow: none;
         }
 
-        .table-button.primary {
+        .button.accent,
+        .mini-button.accent,
+        .filter-button.active {
             background: var(--accent);
-            color: var(--accent-fg);
+            color: #fff;
         }
 
-        .table-button.danger {
+        .mini-button.danger {
             background: var(--danger);
-            color: var(--danger-fg);
+            color: #fff;
         }
 
-        .avatar {
-            min-width: 44px;
-            height: 44px;
-            padding: 0 0.8rem;
-            border: 2px solid var(--border);
-            background: var(--panel);
-            color: var(--fg);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.95rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            box-shadow: var(--shadow);
-        }
-
-        .cards {
+        .metrics {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.25rem;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.9rem;
+            margin-bottom: 1rem;
         }
 
-        .card {
-            background: var(--panel);
-            border: 2px solid var(--border);
-            box-shadow: var(--shadow);
+        .metric {
             padding: 1rem 1.1rem;
         }
 
-        .card-label {
-            margin-bottom: 0.55rem;
+        .metric-label {
             color: var(--muted);
-            font-size: 0.72rem;
-            font-weight: 600;
+            font-size: 0.74rem;
             letter-spacing: 0.16em;
             text-transform: uppercase;
-        }
-
-        .card-value {
-            font-size: clamp(1.9rem, 3vw, 2.45rem);
             font-weight: 700;
-            line-height: 1;
-            letter-spacing: -0.03em;
         }
 
-        .card-sub {
+        .metric-value {
             margin-top: 0.55rem;
+            font-size: clamp(1.8rem, 3vw, 2.5rem);
+            letter-spacing: -0.05em;
+            font-weight: 800;
+        }
+
+        .metric-sub {
+            margin-top: 0.4rem;
             color: var(--muted);
-            font-size: 0.82rem;
+            font-size: 0.84rem;
             line-height: 1.45;
         }
 
+        .banner {
+            margin-bottom: 1rem;
+            padding: 0.95rem 1rem;
+            border: 2px solid var(--border);
+            line-height: 1.5;
+        }
+
+        .banner.notice {
+            background: var(--success-soft);
+        }
+
+        .banner-link {
+            margin-top: 0.5rem;
+            word-break: break-all;
+        }
+
+        .banner-link a {
+            color: var(--text);
+            font-weight: 700;
+        }
+
+        .banner.error {
+            background: var(--danger-soft);
+            color: var(--danger);
+        }
+
         .toolbar {
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .toolbar-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 1rem;
-            margin-bottom: 1rem;
+            gap: 0.9rem;
+            flex-wrap: wrap;
         }
 
         .search {
             flex: 1;
-            max-width: 460px;
+            min-width: 260px;
         }
 
         .search input {
             width: 100%;
-            padding: 0.8rem 0.9rem;
-            border: 1.5px solid var(--border);
-            background: var(--bg2);
-            color: var(--fg);
-            font-family: "Outfit", sans-serif;
-            font-size: 0.95rem;
-            outline: none;
-            transition: border-color 0.1s, box-shadow 0.1s;
-        }
-
-        .search input:focus {
-            border-color: var(--accent);
-            box-shadow: 3px 3px 0 var(--accent);
-        }
-
-        .toolbar-label {
-            display: inline-flex;
-            align-items: center;
-            min-height: 46px;
-            padding: 0.75rem 0.9rem;
+            padding: 0.9rem 1rem;
             border: 2px solid var(--border);
-            background: var(--panel);
+            background: #fffdfa;
+            color: var(--text);
+            font: inherit;
+        }
+
+        .controls {
+            display: flex;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            margin-top: 0.85rem;
+        }
+
+        .control-group {
+            display: grid;
+            gap: 0.4rem;
+        }
+
+        .control-label {
             color: var(--muted);
-            box-shadow: var(--shadow);
             font-size: 0.72rem;
-            font-weight: 600;
-            letter-spacing: 0.14em;
+            font-weight: 700;
+            letter-spacing: 0.16em;
             text-transform: uppercase;
-            white-space: nowrap;
+        }
+
+        .control-select {
+            min-height: 44px;
+            min-width: 190px;
+            padding: 0.8rem 0.95rem;
+            border: 2px solid var(--border);
+            background: #fffdfa;
+            color: var(--text);
+            font: inherit;
+            font-weight: 700;
+        }
+
+        .sort-form {
+            display: flex;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        .sort-toggle {
+            min-height: 44px;
+            min-width: 88px;
+            padding: 0.78rem 0.85rem;
+        }
+
+        .toolbar-summary {
+            margin-top: 0.85rem;
         }
 
         .table-shell {
-            border: 2px solid var(--border);
-            background: var(--panel);
-            box-shadow: var(--shadow);
             overflow: hidden;
         }
 
@@ -278,100 +299,95 @@
             border-bottom: 1.5px solid var(--border);
             text-align: left;
             vertical-align: top;
-            font-size: 0.92rem;
+            font-size: 0.93rem;
         }
 
         th {
-            background: var(--bg2);
+            background: var(--bg-2);
             color: var(--muted);
-            font-size: 0.72rem;
-            font-weight: 600;
-            letter-spacing: 0.15em;
+            font-size: 0.73rem;
+            letter-spacing: 0.14em;
             text-transform: uppercase;
         }
 
         tbody tr:hover {
-            background: var(--bg2);
+            background: rgba(231, 219, 198, 0.46);
         }
 
-        tbody tr:last-child td {
-            border-bottom: 0;
+        .user-name {
+            font-weight: 800;
+            font-size: 1rem;
         }
 
         .muted {
             color: var(--muted);
         }
 
-        .role-pill,
-        .source-pill {
+        .tag-row,
+        .action-row {
+            display: flex;
+            gap: 0.45rem;
+            flex-wrap: wrap;
+        }
+
+        .tag {
             display: inline-flex;
             align-items: center;
-            padding: 0.3rem 0.55rem;
+            padding: 0.34rem 0.56rem;
             border: 1.5px solid var(--border);
-            background: var(--bg2);
+            background: #fff;
             font-size: 0.72rem;
-            font-weight: 600;
+            font-weight: 700;
             letter-spacing: 0.08em;
             text-transform: uppercase;
             white-space: nowrap;
         }
 
-        .role-pill.admin {
-            color: var(--fg);
-            border-left: 4px solid var(--accent);
+        .tag.pending {
+            background: var(--warning-soft);
         }
 
-        .role-pill.user {
-            color: var(--muted);
-            border-left: 4px solid var(--muted);
+        .tag.approved,
+        .tag.verified {
+            background: var(--success-soft);
         }
 
-        .source-pill {
-            color: var(--fg);
-            border-left: 4px solid var(--accent);
+        .tag.rejected,
+        .tag.expired {
+            background: var(--danger-soft);
         }
 
-        .detail-line {
-            margin-top: 0.4rem;
-            color: var(--muted);
-            font-size: 0.84rem;
-            line-height: 1.45;
+        .tag.sent,
+        .tag.queued,
+        .tag.missing,
+        .tag.exempt {
+            background: var(--accent-soft);
+        }
+
+        .stack {
+            display: grid;
+            gap: 0.4rem;
         }
 
         .empty {
+            padding: 1.5rem;
             text-align: center;
             color: var(--muted);
-            padding: 1.4rem;
         }
 
-        @media (max-width: 960px) {
-            .shell {
-                padding: 1.25rem;
+        @media (max-width: 1180px) {
+            .metrics {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
             }
+        }
 
-            .topbar,
-            .toolbar {
+        @media (max-width: 920px) {
+            .topbar {
                 flex-direction: column;
-                align-items: stretch;
-            }
-
-            .topbar-actions,
-            .actions {
-                justify-content: flex-start;
-            }
-
-            .search {
-                max-width: none;
             }
         }
 
-        @media (max-width: 900px) {
-            .table-shell {
-                border: 0;
-                box-shadow: none;
-                background: transparent;
-            }
-
+        @media (max-width: 860px) {
             table,
             thead,
             tbody,
@@ -389,6 +405,7 @@
             tbody {
                 display: grid;
                 gap: 1rem;
+                padding: 1rem;
             }
 
             tr {
@@ -398,150 +415,234 @@
             }
 
             td {
-                display: flex;
-                align-items: flex-start;
-                justify-content: space-between;
-                gap: 1rem;
-                padding: 0.85rem 1rem;
-                border-bottom: 1.5px solid var(--border);
+                display: grid;
+                gap: 0.35rem;
+                padding: 0.8rem 0.95rem;
             }
 
             td::before {
                 content: attr(data-label);
-                flex: 0 0 42%;
                 color: var(--muted);
                 font-size: 0.72rem;
-                font-weight: 600;
-                letter-spacing: 0.12em;
+                font-weight: 700;
                 text-transform: uppercase;
+                letter-spacing: 0.12em;
+            }
+        }
+
+        @media (max-width: 620px) {
+            .metrics {
+                grid-template-columns: 1fr;
             }
 
-            td[data-label="Latest Cluster Result"],
-            td[data-label="Actions"] {
-                display: block;
+            .control-group,
+            .sort-form {
+                width: 100%;
             }
 
-            td[data-label="Latest Cluster Result"]::before,
-            td[data-label="Actions"]::before {
-                display: block;
-                margin-bottom: 0.5rem;
-            }
-
-            td:last-child {
-                border-bottom: 0;
-            }
-
-            .empty {
-                border: 2px solid var(--border);
-                background: var(--panel);
-                box-shadow: var(--shadow);
+            .control-select,
+            .sort-toggle {
+                width: 100%;
+                min-width: 0;
             }
         }
     </style>
 </head>
 <body>
+{% set stats = namespace(total_players=users|length, total_runs=0, pending=0, approved=0, rejected=0) %}
+{% for user in users %}
+    {% set stats.total_runs = stats.total_runs + user.total_runs %}
+    {% if user.approval_state == "pending" %}
+        {% set stats.pending = stats.pending + 1 %}
+    {% endif %}
+    {% if user.approval_state == "approved" %}
+        {% set stats.approved = stats.approved + 1 %}
+    {% endif %}
+    {% if user.approval_state == "rejected" %}
+        {% set stats.rejected = stats.rejected + 1 %}
+    {% endif %}
+{% endfor %}
+
 <div class="shell">
     <div class="topbar">
-        <div class="topbar-copy">
-            <div class="accent-bar"></div>
-            <div class="page-title">
-                <span class="wordmark">Sunod / Telemetry</span>
-                <h1>Players</h1>
-            </div>
-        </div>
-        <div class="topbar-actions">
+        <section class="panel title-panel">
+            <span class="eyebrow">Sunod / Admin users</span>
+            <h1>Players</h1>
+        </section>
+
+        <div class="actions">
+            <a href="/admin/datasets" class="button">Datasets</a>
+            <a href="/admin/quest-bindings" class="button">Quest bindings</a>
+            <a href="/admin/reports" class="button">Reports</a>
+            <a href="/admin/quest-logs" class="button accent">Quest logs</a>
             <form method="post" action="/admin/logout">
-                <button class="control-button" type="submit">Logout {{ current_user.username }}</button>
+                <button class="button" type="submit">Logout {{ current_user.username }}</button>
             </form>
-            <button id="theme-toggle" class="control-button" type="button">Dark mode</button>
-            <div class="avatar">{{ current_user.username[0]|upper if current_user.username else "A" }}</div>
         </div>
     </div>
 
-    {% set stats = namespace(total_players=0, total_runs=0) %}
-    {% if users %}
-        {% set stats.total_players = users | length %}
-        {% for user in users %}
-            {% set stats.total_runs = stats.total_runs + user.total_runs %}
-        {% endfor %}
+    {% if notice_message %}
+        <div class="banner notice">
+            <div>{{ notice_message }}</div>
+            {% if notice_link %}
+                <div class="banner-link">
+                    <a href="{{ notice_link }}" target="_blank" rel="noopener noreferrer">{{ notice_link }}</a>
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}
+    {% if error_message %}
+        <div class="banner error">{{ error_message }}</div>
     {% endif %}
 
-    <section class="cards">
-        <article class="card">
-            <div class="card-label">Total Players</div>
-            <div class="card-value">{{ stats.total_players }}</div>
+    <section class="metrics">
+        <article class="metric">
+            <div class="metric-label">Total players</div>
+            <div class="metric-value">{{ stats.total_players }}</div>
+            <div class="metric-sub">Registered</div>
         </article>
-        <article class="card">
-            <div class="card-label">Total Runs</div>
-            <div class="card-value">{{ stats.total_runs }}</div>
+        <article class="metric">
+            <div class="metric-label">Pending approval</div>
+            <div class="metric-value">{{ stats.pending }}</div>
+            <div class="metric-sub">Needs review</div>
         </article>
-        <article class="card">
-            <div class="card-label">Avg Runs</div>
-            <div class="card-value">
-                {% if stats.total_players > 0 %}
-                    {{ '%.1f' | format(stats.total_runs / stats.total_players) }}
-                {% else %}
-                    0.0
-                {% endif %}
-            </div>
+        <article class="metric">
+            <div class="metric-label">Active accounts</div>
+            <div class="metric-value">{{ stats.approved }}</div>
+            <div class="metric-sub">Approved</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Recorded runs</div>
+            <div class="metric-value">{{ stats.total_runs }}</div>
+            <div class="metric-sub">Telemetry</div>
         </article>
     </section>
 
     <section class="toolbar">
-        <div class="search">
-            <input id="user-search" type="search" placeholder="Search by username or email..." />
+        <div class="toolbar-row">
+            <div class="search">
+                <input id="user-search" type="search" placeholder="Search username or email..." />
+            </div>
+            <div class="muted">Search and filter.</div>
         </div>
-        <div class="toolbar-label">Sorted by activity</div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label class="control-label" for="user-filter">Filter</label>
+                <select id="user-filter" class="control-select">
+                    <option value="all">All</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="verified">Verified</option>
+                    <option value="rejected">Rejected</option>
+                </select>
+            </div>
+            <form method="get" action="/admin/users" class="sort-form" id="sort-form">
+                <div class="control-group">
+                    <label class="control-label" for="sort-by">Sort column</label>
+                    <select id="sort-by" name="sort_by" class="control-select">
+                        {% for option in sort_options %}
+                            <option value="{{ option.value }}"{% if option.value == sort_by %} selected{% endif %}>{{ option.label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <input type="hidden" name="sort_dir" id="sort-dir" value="{{ sort_dir }}" />
+                <button class="mini-button accent sort-toggle" type="button" id="sort-dir-toggle" aria-label="Toggle sort direction">
+                    {{ "ASC" if sort_dir == "desc" else "DESC" }}
+                </button>
+            </form>
+        </div>
+        <div class="toolbar-summary muted">Current sort: {{ sort_summary }}</div>
     </section>
 
     <section class="table-shell">
         <table id="users-table">
             <thead>
             <tr>
-                <th>User ID</th>
-                <th>Username</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Created At</th>
-                <th>Last Login</th>
-                <th>Total Runs</th>
-                <th>Latest Cluster Result</th>
+                <th>User</th>
+                <th>Verification</th>
+                <th>Last activity</th>
+                <th>Latest result</th>
                 <th>Actions</th>
             </tr>
             </thead>
             <tbody>
             {% if users %}
                 {% for user in users %}
-                    <tr class="user-row">
-                        <td data-label="User ID" class="muted">USR-{{ "%03d"|format(user.user_id) }}</td>
-                        <td data-label="Username">{{ user.username }}</td>
-                        <td data-label="Email" class="muted">{{ user.email or "-" }}</td>
-                        <td data-label="Role">
-                            <span class="role-pill {{ user.role }}">{{ user.role }}</span>
+                    <tr class="user-row"
+                        data-search="{{ (user.username ~ ' ' ~ (user.email or '') ~ ' ' ~ (user.name or '') ~ ' ' ~ (user.birthdate or '') ~ ' ' ~ (user.gender or '')) | lower }}"
+                        data-approval="{{ user.approval_state }}"
+                        data-verification="{{ user.email_verification_state }}">
+                        <td data-label="User">
+                            <div class="stack">
+                                <div class="user-name">{{ user.username }}</div>
+                                <div class="muted">{{ user.name or "No name yet" }}</div>
+                                <div class="muted">{{ user.birthdate or "No birthdate yet" }} | {{ user.gender or "No gender yet" }}</div>
+                                <div class="muted">USR-{{ "%03d"|format(user.user_id) }}</div>
+                                <div class="muted">{{ user.email or "No email yet" }}</div>
+                                <div class="muted">Registered {{ user.created_at }}</div>
+                                <div class="tag-row">
+                                    <span class="tag {{ user.role }}">{{ user.role }}</span>
+                                    <span class="tag {{ user.approval_state }}">{{ user.approval_state }}</span>
+                                </div>
+                            </div>
                         </td>
-                        <td data-label="Created At" class="muted">{{ user.created_at }}</td>
-                        <td data-label="Last Login" class="muted">{{ user.last_login or "-" }}</td>
-                        <td data-label="Total Runs">{{ user.total_runs }}</td>
-                        <td data-label="Latest Cluster Result">
+                        <td data-label="Verification">
+                            <div class="tag-row">
+                                <span class="tag {{ user.email_verification_state }}">{{ user.email_verification_state }}</span>
+                            </div>
+                        </td>
+                        <td data-label="Last activity">
+                            <div class="stack">
+                                <div>{{ user.last_login or "No login yet" }}</div>
+                                <div class="muted">{{ user.total_runs }} run{{ "" if user.total_runs == 1 else "s" }}</div>
+                                <div class="muted">Last run: {{ user.last_run_at or "n/a" }}</div>
+                            </div>
+                        </td>
+                        <td data-label="Latest result">
                             {% if user.last_predicted_cluster is not none %}
-                                <div>
-                                    <span class="source-pill">Cluster {{ user.last_predicted_cluster }} &middot; {{ user.last_cluster_label }}</span>
-                                    <div class="detail-line">Holland {{ user.last_cluster_holland_code or "-" }} &middot; {{ user.last_source or "Cluster Model" }}</div>
+                                <div class="stack">
+                                    <div class="user-name">Cluster {{ user.last_predicted_cluster }}</div>
+                                    <div class="muted">{{ user.last_cluster_label or "No label" }}</div>
+                                    <div class="muted">Holland {{ user.last_cluster_holland_code or "-" }}</div>
                                 </div>
                             {% elif user.total_runs > 0 %}
-                                <div>
-                                    <span class="source-pill">Pending cluster result</span>
-                                    <div class="detail-line">Session recorded &middot; {{ user.last_source or "Session Telemetry" }}</div>
+                                <div class="stack">
+                                    <div class="user-name">Pending cluster result</div>
+                                    <div class="muted">{{ user.last_source or "Session Telemetry" }}</div>
                                 </div>
                             {% else %}
-                                <span class="source-pill">No runs yet</span>
+                                <div class="muted">No runs yet</div>
                             {% endif %}
                         </td>
                         <td data-label="Actions">
-                            <div class="actions">
-                                <a href="/admin/users/{{ user.user_id }}" class="table-button primary">View performance</a>
+                            <div class="action-row">
+                                <a href="/admin/users/{{ user.user_id }}" class="mini-button accent">View report</a>
+
+                                {% if user.approval_state == "pending" %}
+                                    <form method="post" action="/admin/users/{{ user.user_id }}/approve">
+                                        <input type="hidden" name="redirect_to" value="/admin/users" />
+                                        <button class="mini-button" type="submit">Approve</button>
+                                    </form>
+                                {% endif %}
+
+                                {% if user.approval_state == "approved" and user.email_verification_state in ["queued", "expired"] %}
+                                    <form method="post" action="/admin/users/{{ user.user_id }}/send-verification">
+                                        <input type="hidden" name="redirect_to" value="/admin/users" />
+                                        <button class="mini-button" type="submit">Send link</button>
+                                    </form>
+                                {% endif %}
+
+                                {% if user.approval_state == "approved" and user.email_verification_state == "sent" %}
+                                    <form method="post" action="/admin/users/{{ user.user_id }}/resend-verification">
+                                        <input type="hidden" name="redirect_to" value="/admin/users" />
+                                        <button class="mini-button" type="submit">Resend</button>
+                                    </form>
+                                {% endif %}
+
                                 <form method="post" action="/admin/users/{{ user.user_id }}/delete" onsubmit="return confirm('Delete this user and all telemetry records? This cannot be undone.');">
-                                    <button type="submit" class="table-button danger">Delete</button>
+                                    <input type="hidden" name="redirect_to" value="/admin/users" />
+                                    <button class="mini-button danger" type="submit">Delete</button>
                                 </form>
                             </div>
                         </td>
@@ -549,7 +650,7 @@
                 {% endfor %}
             {% else %}
                 <tr>
-                    <td colspan="9" class="empty">No users found yet. Once the game sends session telemetry, players will appear here.</td>
+                    <td colspan="5" class="empty">No users found yet.</td>
                 </tr>
             {% endif %}
             </tbody>
@@ -559,36 +660,50 @@
 
 <script>
     (function () {
-        const root = document.documentElement;
-        const toggle = document.getElementById("theme-toggle");
-        const key = "sunod_theme";
+        const searchInput = document.getElementById("user-search");
+        const filterSelect = document.getElementById("user-filter");
+        const sortForm = document.getElementById("sort-form");
+        const sortBySelect = document.getElementById("sort-by");
+        const sortDirInput = document.getElementById("sort-dir");
+        const sortDirToggle = document.getElementById("sort-dir-toggle");
+        const rows = Array.from(document.querySelectorAll(".user-row"));
+        let activeFilter = filterSelect.value || "all";
 
-        function applyTheme(theme) {
-            root.setAttribute("data-theme", theme);
-            toggle.textContent = theme === "light" ? "Dark mode" : "Light mode";
+        function matchesFilter(row) {
+            if (activeFilter === "all") return true;
+            const approval = row.dataset.approval;
+            const verification = row.dataset.verification;
+            if (activeFilter === "verified") {
+                return verification === "verified" || verification === "exempt";
+            }
+            return approval === activeFilter;
         }
 
-        applyTheme(localStorage.getItem(key) || "light");
-
-        toggle.addEventListener("click", function () {
-            const next = root.getAttribute("data-theme") === "light" ? "dark" : "light";
-            applyTheme(next);
-            localStorage.setItem(key, next);
-        });
-    })();
-</script>
-<script>
-    (function () {
-        const input = document.getElementById("user-search");
-        const rows = Array.from(document.querySelectorAll(".user-row"));
-        input.addEventListener("input", function () {
-            const query = this.value.toLowerCase().trim();
+        function applyFilters() {
+            const query = (searchInput.value || "").trim().toLowerCase();
             rows.forEach((row) => {
-                const username = row.children[1]?.textContent.toLowerCase() || "";
-                const email = row.children[2]?.textContent.toLowerCase() || "";
-                row.style.display = !query || username.includes(query) || email.includes(query) ? "" : "none";
+                const searchable = row.dataset.search || "";
+                const visible = (!query || searchable.includes(query)) && matchesFilter(row);
+                row.style.display = visible ? "" : "none";
             });
+        }
+
+        searchInput.addEventListener("input", applyFilters);
+        filterSelect.addEventListener("change", function () {
+            activeFilter = this.value;
+            applyFilters();
         });
+
+        sortBySelect.addEventListener("change", function () {
+            sortForm.requestSubmit ? sortForm.requestSubmit() : sortForm.submit();
+        });
+
+        sortDirToggle.addEventListener("click", function () {
+            sortDirInput.value = sortDirInput.value === "desc" ? "asc" : "desc";
+            sortForm.requestSubmit ? sortForm.requestSubmit() : sortForm.submit();
+        });
+
+        applyFilters();
     })();
 </script>
 </body>

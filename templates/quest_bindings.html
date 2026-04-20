@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Sunod Quest Bindings</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="/static/fonts/outfit.css" rel="stylesheet" />
+    <style>
+        :root {
+            --bg: #f3ecdf;
+            --bg-2: #e7dbc6;
+            --panel: #fffaf1;
+            --text: #18120d;
+            --muted: #675e56;
+            --border: #18120d;
+            --accent: #d1542a;
+            --accent-soft: rgba(209, 84, 42, 0.14);
+            --success-soft: rgba(95, 159, 82, 0.14);
+            --danger-soft: rgba(164, 66, 34, 0.16);
+            --shadow: 5px 5px 0 #18120d;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at top left, rgba(209, 84, 42, 0.13), transparent 24%),
+                linear-gradient(180deg, var(--bg), #efe3d0 100%);
+            color: var(--text);
+            font-family: "Outfit", sans-serif;
+        }
+
+        .shell {
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 1.25rem;
+        }
+
+        .panel,
+        .metric,
+        .table-shell {
+            background: var(--panel);
+            border: 2px solid var(--border);
+            box-shadow: var(--shadow);
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .title-panel {
+            padding: 1.35rem 1.45rem;
+            flex: 1;
+        }
+
+        .eyebrow {
+            display: inline-block;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        h1 {
+            margin: 0.65rem 0 0.45rem;
+            font-size: clamp(2.2rem, 5vw, 3.8rem);
+            letter-spacing: -0.06em;
+            line-height: 0.95;
+        }
+
+        .actions,
+        .action-row {
+            display: flex;
+            gap: 0.65rem;
+            flex-wrap: wrap;
+        }
+
+        .button,
+        .mini-button {
+            border: 2px solid var(--border);
+            background: var(--panel);
+            color: var(--text);
+            font: inherit;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            transition: transform 0.08s ease, box-shadow 0.08s ease;
+            min-height: 44px;
+            padding: 0.8rem 1rem;
+        }
+
+        .mini-button {
+            min-height: auto;
+            padding: 0.58rem 0.72rem;
+            font-size: 0.72rem;
+            box-shadow: 4px 4px 0 var(--border);
+        }
+
+        .button.accent,
+        .mini-button.accent {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .mini-button.danger {
+            background: #a44222;
+            color: #fff;
+        }
+
+        .button:hover,
+        .mini-button:hover {
+            transform: translate(-2px, -2px);
+        }
+
+        .button:hover {
+            box-shadow: 8px 8px 0 var(--border);
+        }
+
+        .mini-button:hover {
+            box-shadow: 6px 6px 0 var(--border);
+        }
+
+        .button:active,
+        .mini-button:active {
+            transform: translate(4px, 4px);
+            box-shadow: none;
+        }
+
+        .banner {
+            margin-bottom: 1rem;
+            padding: 0.95rem 1rem;
+            border: 2px solid var(--border);
+            line-height: 1.5;
+        }
+
+        .banner.notice { background: var(--success-soft); }
+        .banner.error { background: var(--danger-soft); color: #8d2f18; }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .metric { padding: 1rem 1.1rem; }
+
+        .metric-label {
+            color: var(--muted);
+            font-size: 0.74rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .metric-value {
+            margin-top: 0.55rem;
+            font-size: clamp(1.6rem, 3vw, 2.4rem);
+            letter-spacing: -0.05em;
+            font-weight: 800;
+        }
+
+        .metric-sub {
+            margin-top: 0.4rem;
+            color: var(--muted);
+            font-size: 0.84rem;
+            line-height: 1.45;
+        }
+
+        .table-shell {
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 0.95rem 1rem;
+            border-bottom: 1.5px solid var(--border);
+            text-align: left;
+            vertical-align: top;
+            font-size: 0.93rem;
+        }
+
+        th {
+            background: var(--bg-2);
+            color: var(--muted);
+            font-size: 0.73rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.34rem 0.56rem;
+            border: 1.5px solid var(--border);
+            background: #fff;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .tag.level { background: var(--accent-soft); }
+        .tag.quest { background: rgba(95, 159, 82, 0.18); }
+
+        .scope-name {
+            font-weight: 800;
+            font-size: 1rem;
+        }
+
+        .muted { color: var(--muted); }
+
+        .binding-card {
+            display: grid;
+            gap: 0.35rem;
+            line-height: 1.45;
+        }
+
+        select {
+            width: 100%;
+            padding: 0.75rem 0.85rem;
+            border: 2px solid var(--border);
+            background: #fffdfa;
+            color: var(--text);
+            font: inherit;
+            margin-bottom: 0.45rem;
+        }
+
+        .empty {
+            padding: 1.5rem;
+            text-align: center;
+            color: var(--muted);
+        }
+
+        @media (max-width: 1080px) {
+            .metrics {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .topbar {
+                flex-direction: column;
+            }
+        }
+
+        @media (max-width: 860px) {
+            table,
+            thead,
+            tbody,
+            tr,
+            th,
+            td {
+                display: block;
+                width: 100%;
+            }
+
+            thead { display: none; }
+
+            tbody {
+                display: grid;
+                gap: 1rem;
+                padding: 1rem;
+            }
+
+            tr {
+                border: 2px solid var(--border);
+                background: var(--panel);
+                box-shadow: var(--shadow);
+            }
+
+            td {
+                display: grid;
+                gap: 0.35rem;
+                padding: 0.8rem 0.95rem;
+            }
+
+            td::before {
+                content: attr(data-label);
+                color: var(--muted);
+                font-size: 0.72rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.12em;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="shell">
+    <div class="topbar">
+        <section class="panel title-panel">
+            <span class="eyebrow">Sunod / Admin bindings</span>
+            <h1>Quest and Level Bindings</h1>
+        </section>
+        <div class="actions">
+            <a href="/admin/users" class="button">Players</a>
+            <a href="/admin/datasets" class="button">Datasets</a>
+            <a href="/admin/reports" class="button">Reports</a>
+            <a href="/admin/quest-logs" class="button">Quest logs</a>
+            <form method="post" action="/admin/logout">
+                <button class="button" type="submit">Logout {{ current_user.username }}</button>
+            </form>
+        </div>
+    </div>
+
+    {% if notice_message %}
+        <div class="banner notice">{{ notice_message }}</div>
+    {% endif %}
+    {% if error_message %}
+        <div class="banner error">{{ error_message }}</div>
+    {% endif %}
+
+    <section class="metrics">
+        <article class="metric">
+            <div class="metric-label">Binding targets</div>
+            <div class="metric-value">{{ binding_counts.targets }}</div>
+            <div class="metric-sub">Quest and level rows</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Bound rows</div>
+            <div class="metric-value">{{ binding_counts.bound }}</div>
+            <div class="metric-sub">Rows with exact or fallback binding</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Trained datasets</div>
+            <div class="metric-value">{{ binding_counts.trained_datasets }}</div>
+            <div class="metric-sub">Selectable for binding</div>
+        </article>
+    </section>
+
+    <section class="table-shell">
+        <table>
+            <thead>
+            <tr>
+                <th>Target</th>
+                <th>Resolved binding</th>
+                <th>Assign trained dataset</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% if bindings %}
+                {% for row in bindings %}
+                    <tr>
+                        <td data-label="Target">
+                            <div class="scope-name">{{ row.scope_label }}</div>
+                            <div class="muted">{{ row.scope_id }}</div>
+                            <div class="action-row" style="margin-top: 0.45rem;">
+                                <span class="tag {{ row.scope_type }}">{{ row.scope_type }}</span>
+                                {% if row.level_id %}
+                                    <span class="tag level">{{ row.level_id }}</span>
+                                {% endif %}
+                                {% if row.primary_riasec %}
+                                    <span class="tag">{{ row.primary_riasec }}</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td data-label="Resolved binding">
+                            {% if row.binding %}
+                                <div class="binding-card">
+                                    <div><strong>{{ row.binding.dataset_name }}</strong></div>
+                                    <div class="muted">Model: {{ row.binding.model_version }}</div>
+                                    <div class="muted">Bundle: {{ row.binding.bundle_key or "n/a" }}</div>
+                                    <div class="muted">Snapshot: {{ row.binding.bundle_ready_label }}</div>
+                                    <div class="muted">Updated: {{ row.binding.updated_at }}</div>
+                                    <div class="muted">By: {{ row.binding.updated_by_username or "admin" }}</div>
+                                    <div class="muted">{{ row.binding_source_label }}</div>
+                                    {% if row.binding_source == "level" %}
+                                        <div class="muted">Exact quest binding is missing, using level fallback.</div>
+                                    {% elif row.exact_binding and row.exact_binding.dataset_id != row.binding.dataset_id %}
+                                        <div class="muted">Exact quest binding is missing, using level fallback.</div>
+                                    {% elif row.exact_binding %}
+                                        <div class="muted">Exact binding is active.</div>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <div class="muted">No binding yet.</div>
+                            {% endif %}
+                        </td>
+                        <td data-label="Assign trained dataset">
+                            <form method="post" action="/admin/quest-bindings/assign">
+                                <input type="hidden" name="scope_type" value="{{ row.scope_type }}" />
+                                <input type="hidden" name="scope_id" value="{{ row.scope_id }}" />
+                                <select name="dataset_id" required>
+                                    <option value="">Choose trained dataset</option>
+                                    {% for dataset in trained_datasets %}
+                                        <option value="{{ dataset.id }}"
+                                                {% if row.binding and row.binding.dataset_id == dataset.id %}selected{% endif %}>
+                                            {{ dataset.dataset_name }} ({{ dataset.model_version }}) - {{ dataset.bundle_key }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="action-row">
+                                    <button class="mini-button accent" type="submit">Assign</button>
+                                </div>
+                            </form>
+                            {% if row.binding %}
+                                <form method="post" action="/admin/quest-bindings/clear" style="margin-top: 0.45rem;">
+                                    <input type="hidden" name="scope_type" value="{{ row.scope_type }}" />
+                                    <input type="hidden" name="scope_id" value="{{ row.scope_id }}" />
+                                    <button class="mini-button danger" type="submit">Clear</button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="3" class="empty">No binding targets available.</td>
+                </tr>
+            {% endif %}
+            </tbody>
+        </table>
+    </section>
+</div>
+</body>
+</html>

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Verify your SUNOD account</title>
+</head>
+<body style="margin:0;padding:24px;background:#f4ede1;color:#19130e;font-family:Arial,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:0 auto;background:#fff9f1;border:2px solid #19130e;">
+        <tr>
+            <td style="padding:28px;">
+                <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#675f58;font-weight:700;">Sunod / Account verification</div>
+                <h1 style="margin:14px 0 12px;font-size:32px;line-height:1;letter-spacing:-1px;">Hello {{ username }},</h1>
+                <p style="margin:0 0 18px;line-height:1.7;color:#675f58;">
+                    Your SUNOD account has been approved. Finish the login setup by verifying your email address.
+                </p>
+                <p style="margin:0 0 22px;line-height:1.7;color:#675f58;">
+                    This link stays active for {{ expires_in_hours }} hour{% if expires_in_hours != 1 %}s{% endif %}.
+                </p>
+                <p style="margin:0 0 24px;">
+                    <a href="{{ verification_link }}" style="display:inline-block;padding:14px 18px;border:2px solid #19130e;background:#d4552c;color:#ffffff;text-decoration:none;font-weight:700;text-transform:uppercase;letter-spacing:1px;">
+                        Verify email
+                    </a>
+                </p>
+                <p style="margin:0;line-height:1.7;color:#675f58;">
+                    If the button does not work, open this link directly:<br />
+                    <a href="{{ verification_link }}" style="color:#d4552c;">{{ verification_link }}</a>
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

@@ -17,12 +17,12 @@ from app.feature_pipeline import DIMENSIONS, FEATURE_SCHEMA
 
 
 LOGGER = logging.getLogger(__name__)
-ML_DIR = Path(__file__).resolve().parents[1] / "ml"
-MODEL_PATH = ML_DIR / "model.joblib"
-FEATURE_SCHEMA_PATH = ML_DIR / "feature_schema.json"
-MODEL_VERSION_PATH = ML_DIR / "model_version.txt"
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+RUNTIME_ARTIFACTS_DIR = BACKEND_ROOT / "model_assets" / "runtime"
+MODEL_PATH = RUNTIME_ARTIFACTS_DIR / "model.joblib"
+FEATURE_SCHEMA_PATH = RUNTIME_ARTIFACTS_DIR / "feature_schema.json"
+MODEL_VERSION_PATH = RUNTIME_ARTIFACTS_DIR / "model_version.txt"
 DEFAULT_CLUSTER_MODEL_PATH = BACKEND_ROOT / "model_assets" / "Trained RIASEC Cluster Model.pkl"
 
 
@@ -73,7 +73,10 @@ def warm_load_model(
             MODEL_PATH,
         )
     else:
-        active_logger.warning("Runtime model unavailable: %s", status.reason)
+        if status.reason and status.reason.startswith("Runtime model artifacts are missing"):
+            active_logger.info("Runtime model unavailable yet: %s", status.reason)
+        else:
+            active_logger.warning("Runtime model unavailable: %s", status.reason)
 
     return status
 
@@ -191,14 +194,14 @@ def predict_cluster(
 
 def _load_runtime_model() -> RuntimeModelStatus:
     missing_paths = [
-        str(path)
+        path
         for path in (MODEL_PATH, FEATURE_SCHEMA_PATH, MODEL_VERSION_PATH)
         if not path.exists()
     ]
     if missing_paths:
         return RuntimeModelStatus(
             available=False,
-            reason="Missing runtime model artifacts: " + ", ".join(missing_paths),
+            reason="Runtime model artifacts are missing.",
         )
 
     try:
@@ -206,7 +209,7 @@ def _load_runtime_model() -> RuntimeModelStatus:
     except Exception as exc:
         return RuntimeModelStatus(
             available=False,
-            reason=f"Failed to read feature_schema.json: {exc}",
+            reason="feature_schema.json could not be read.",
         )
 
     if saved_feature_schema != FEATURE_SCHEMA:
@@ -223,7 +226,7 @@ def _load_runtime_model() -> RuntimeModelStatus:
     except Exception as exc:
         return RuntimeModelStatus(
             available=False,
-            reason=f"Failed to read model_version.txt: {exc}",
+            reason="model_version.txt could not be read.",
         )
 
     if not model_version:
@@ -237,7 +240,7 @@ def _load_runtime_model() -> RuntimeModelStatus:
     except Exception as exc:
         return RuntimeModelStatus(
             available=False,
-            reason=f"Failed to load model.joblib: {exc}",
+            reason="model.joblib could not be loaded.",
         )
 
     if not hasattr(model, "predict"):
@@ -290,7 +293,7 @@ def _load_cluster_model() -> ClusterModelStatus:
     if not model_path.exists():
         return ClusterModelStatus(
             available=False,
-            reason=f"Missing cluster model artifact: {model_path}",
+            reason="Cluster model artifact is missing.",
             model_path=str(model_path),
         )
 
@@ -299,7 +302,7 @@ def _load_cluster_model() -> ClusterModelStatus:
     except Exception as exc:
         return ClusterModelStatus(
             available=False,
-            reason=f"Failed to load cluster model: {exc}",
+            reason="Cluster model could not be loaded.",
             model_path=str(model_path),
         )
 

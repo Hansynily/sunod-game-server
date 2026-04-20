@@ -9,6 +9,7 @@ import secrets
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from app import account_lifecycle
 from app.database import get_db
 from app.repository import TelemetryRepository
 
@@ -26,6 +27,30 @@ class AuthenticatedPrincipal:
     user_id: int
     username: str
     role: str
+
+
+def describe_user_access(user) -> account_lifecycle.LifecycleSnapshot:
+    effective_email_state = account_lifecycle.resolve_effective_email_state(
+        user.email_verification_state,
+        user.verification_expires_at,
+    )
+    return account_lifecycle.describe_login_state(
+        role=user.role,
+        approval_state=user.approval_state,
+        email_verification_state=effective_email_state,
+        rejection_reason=user.rejection_reason,
+    )
+
+
+def ensure_user_can_authenticate(user) -> account_lifecycle.LifecycleSnapshot:
+    snapshot = describe_user_access(user)
+    if snapshot.can_login:
+        return snapshot
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=snapshot.message,
+    )
 
 
 def hash_password(password: str) -> str:
@@ -176,6 +201,7 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authenticated user not found.",
         )
+    ensure_user_can_authenticate(user)
     return user
 
 
@@ -192,6 +218,7 @@ def get_optional_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authenticated user not found.",
         )
+    ensure_user_can_authenticate(user)
     return user
 
 
