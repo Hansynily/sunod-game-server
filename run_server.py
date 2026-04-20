@@ -3,20 +3,14 @@ from importlib.util import find_spec
 import logging.config
 from pathlib import Path
 import sys
-if os.getenv("ADMIN_USERNAME") and os.getenv("ADMIN_PASSWORD"):
-    try:
-        print("Running admin bootstrap...")
-        from create_admin_railway import main
-        main()
-    except Exception as e:
-        print(f"Admin bootstrap failed: {e}")
+
 
 
 from dotenv import load_dotenv
 import uvicorn
 
 from app.logging_utils import build_log_config
-
+from create_admin_railway import main as create_admin_main
 
 ROOT = Path(__file__).resolve().parent
 LOG_DIR = ROOT / "logs"
@@ -43,7 +37,7 @@ def main() -> None:
     try:
         if os.getenv("ADMIN_USERNAME") and os.getenv("ADMIN_PASSWORD"):
             print("Running admin bootstrap...")
-            main()
+            create_admin_main()
         else:
             print("Skipping admin bootstrap (no env vars set)")
     except Exception as e:
