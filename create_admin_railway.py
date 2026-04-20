@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import uuid
 from getpass import getpass
+from datetime import datetime, date
 
 from app.database import close_db, get_database
 from app.repository import DuplicateUserError, TelemetryRepository
@@ -50,11 +51,17 @@ def _get_name(username: str) -> str:
     return username
 
 
-def _get_birthdate() -> str:
+
+def _get_birthdate() -> date:
     value = os.getenv("ADMIN_BIRTHDATE")
     if value and value.strip():
-        return value.strip()
-    return "2000-01-01"
+        try:
+            return datetime.strptime(value.strip(), "%Y-%m-%d").date()
+        except ValueError:
+            raise ValueError("ADMIN_BIRTHDATE must be in YYYY-MM-DD format")
+
+    # fallback default
+    return date(2000, 1, 1)
 
 
 def _get_gender() -> str:
