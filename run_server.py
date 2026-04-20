@@ -3,7 +3,7 @@ from importlib.util import find_spec
 import logging.config
 from pathlib import Path
 import sys
-from create_admin import main as create_admin_railway
+from create_admin_railway import main
 
 
 from dotenv import load_dotenv
