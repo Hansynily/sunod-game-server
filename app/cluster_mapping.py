@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 
@@ -9,19 +11,17 @@ class ClusterProfile:
     example_careers: tuple[str, ...]
     is_outlier: bool = False
 
-
-_CLUSTER_MAP: dict[int, ClusterProfile] = {
-    0: ClusterProfile(0, "RI", "Engineering", ("Civil Engineer", "Programmer", "Architect")),
-    1: ClusterProfile(1, "IA", "Arts & Design", ("Fashion Designer", "Graphic Artist", "Writer")),
-    2: ClusterProfile(2, "SEC", "Business & Finance", ("Accountant", "Financial Analyst", "Entrepreneur")),
-    3: ClusterProfile(3, "AS", "Performing Arts", ("Musician", "Athlete", "Entertainer")),
-    4: ClusterProfile(4, "-", "Varied Interests", tuple(), True),
-    5: ClusterProfile(5, "IS", "Research", ("Computer Scientist", "Zoologist", "Epidemiologist")),
-    6: ClusterProfile(6, "SC", "Social Services", ("Lawyer", "Teacher", "Counselor")),
-    7: ClusterProfile(7, "-", "Varied Interests", tuple(), True),
-    8: ClusterProfile(8, "IAS", "Healthcare", ("Doctor", "Nurse", "Pharmacist")),
+_DEFAULT_CLUSTER_MAP: dict[int, ClusterProfile] = {
+    cluster_id: ClusterProfile(
+        cluster_id,
+        "N/A",
+        f"Cluster {cluster_id}",
+        tuple(),
+        False,
+    )
+    for cluster_id in range(8)
 }
 
 
 def get_cluster_profile(cluster: int) -> ClusterProfile | None:
-    return _CLUSTER_MAP.get(cluster)
+    return _DEFAULT_CLUSTER_MAP.get(cluster)

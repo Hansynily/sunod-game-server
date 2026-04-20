@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.database import close_db, init_db
-from app.ml_runtime import warm_load_cluster_model
+from app.cluster_runtime import warm_load_career_models, warm_load_cluster_model
 from app.routers import telemetry
 
 
@@ -17,7 +17,8 @@ ROOT = Path(__file__).resolve().parent.parent
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
-    warm_load_cluster_model(logger=LOGGER)
+    cluster_status = warm_load_cluster_model(logger=LOGGER)
+    warm_load_career_models(logger=LOGGER, cluster_status=cluster_status)
     try:
         yield
     finally:
@@ -36,6 +37,7 @@ def create_app() -> FastAPI:
 
     application.include_router(telemetry.router)
     application.include_router(telemetry.predict_router)
+    application.include_router(telemetry.public_router)
     application.include_router(telemetry.admin_router)
     application.include_router(telemetry.admin_ui_router)
 

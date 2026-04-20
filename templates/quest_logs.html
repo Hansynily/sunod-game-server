@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Sunod Quest Logs</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="/static/fonts/outfit.css" rel="stylesheet" />
+    <style>
+        :root {
+            --bg: #f3ecdf;
+            --bg-2: #e7dbc6;
+            --panel: #fffaf1;
+            --text: #18120d;
+            --muted: #675e56;
+            --border: #18120d;
+            --accent: #d1542a;
+            --accent-soft: rgba(209, 84, 42, 0.14);
+            --success-soft: rgba(95, 159, 82, 0.14);
+            --danger-soft: rgba(164, 66, 34, 0.16);
+            --shadow: 5px 5px 0 #18120d;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at top left, rgba(209, 84, 42, 0.13), transparent 24%),
+                linear-gradient(180deg, var(--bg), #efe3d0 100%);
+            color: var(--text);
+            font-family: "Outfit", sans-serif;
+        }
+
+        .shell {
+            max-width: 1480px;
+            margin: 0 auto;
+            padding: 1.25rem;
+        }
+
+        .panel,
+        .table-shell,
+        .toolbar,
+        .metric {
+            background: var(--panel);
+            border: 2px solid var(--border);
+            box-shadow: var(--shadow);
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .title-panel {
+            padding: 1.35rem 1.45rem;
+            flex: 1;
+        }
+
+        .eyebrow {
+            display: inline-block;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        h1 {
+            margin: 0.65rem 0 0.45rem;
+            font-size: clamp(2.4rem, 5vw, 4rem);
+            letter-spacing: -0.06em;
+            line-height: 0.95;
+        }
+
+        .actions,
+        .filters,
+        .tag-row {
+            display: flex;
+            gap: 0.65rem;
+            flex-wrap: wrap;
+        }
+
+        .button,
+        .filter-button {
+            border: 2px solid var(--border);
+            background: var(--panel);
+            color: var(--text);
+            font: inherit;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            transition: transform 0.08s ease, box-shadow 0.08s ease;
+            min-height: 44px;
+            padding: 0.8rem 1rem;
+        }
+
+        .button:hover,
+        .filter-button:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 8px 8px 0 var(--border);
+        }
+
+        .button:active,
+        .filter-button:active {
+            transform: translate(4px, 4px);
+            box-shadow: none;
+        }
+
+        .button.accent {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .banner {
+            margin-bottom: 1rem;
+            padding: 0.95rem 1rem;
+            border: 2px solid var(--border);
+            line-height: 1.5;
+        }
+
+        .banner.notice { background: var(--success-soft); }
+        .banner.error { background: var(--danger-soft); color: #8d2f18; }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .metric { padding: 1rem 1.1rem; }
+
+        .metric-label {
+            color: var(--muted);
+            font-size: 0.74rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .metric-value {
+            margin-top: 0.55rem;
+            font-size: clamp(1.8rem, 3vw, 2.5rem);
+            letter-spacing: -0.05em;
+            font-weight: 800;
+        }
+
+        .metric-sub {
+            margin-top: 0.4rem;
+            color: var(--muted);
+            font-size: 0.84rem;
+            line-height: 1.45;
+        }
+
+        .toolbar {
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: 2fr 1.2fr 1fr 1fr 1fr;
+            gap: 0.8rem;
+            align-items: end;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.35rem;
+            color: var(--muted);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 0.85rem 0.95rem;
+            border: 2px solid var(--border);
+            background: #fffdfa;
+            color: var(--text);
+            font: inherit;
+        }
+
+        .table-shell { overflow: hidden; }
+
+        .table-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.8rem;
+            padding: 1rem 1.1rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 0.95rem 1rem;
+            border-bottom: 1.5px solid var(--border);
+            text-align: left;
+            vertical-align: top;
+            font-size: 0.93rem;
+        }
+
+        th {
+            background: var(--bg-2);
+            color: var(--muted);
+            font-size: 0.73rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .user-name {
+            font-weight: 800;
+            font-size: 1rem;
+        }
+
+        .muted { color: var(--muted); }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.34rem 0.56rem;
+            border: 1.5px solid var(--border);
+            background: #fff;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .tag.success { background: var(--success-soft); }
+        .tag.failure { background: var(--danger-soft); }
+
+        .empty {
+            padding: 1.5rem;
+            text-align: center;
+            color: var(--muted);
+        }
+
+        @media (max-width: 1080px) {
+            .filter-grid,
+            .metrics {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 860px) {
+            .topbar {
+                flex-direction: column;
+            }
+
+            .filter-grid,
+            .metrics {
+                grid-template-columns: 1fr;
+            }
+
+            table,
+            thead,
+            tbody,
+            tr,
+            th,
+            td {
+                display: block;
+                width: 100%;
+            }
+
+            thead { display: none; }
+
+            tbody {
+                display: grid;
+                gap: 1rem;
+                padding: 1rem;
+            }
+
+            tr {
+                border: 2px solid var(--border);
+                background: var(--panel);
+                box-shadow: var(--shadow);
+            }
+
+            td {
+                display: grid;
+                gap: 0.35rem;
+                padding: 0.8rem 0.95rem;
+            }
+
+            td::before {
+                content: attr(data-label);
+                color: var(--muted);
+                font-size: 0.72rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.12em;
+            }
+        }
+    </style>
+</head>
+<body>
+{% set total_logs = quest_logs|length %}
+{% set success_logs = quest_logs|selectattr("success", "equalto", 1)|list|length %}
+{% set failure_logs = total_logs - success_logs %}
+<div class="shell">
+    <div class="topbar">
+        <section class="panel title-panel">
+            <span class="eyebrow">Sunod / Admin quest logs</span>
+            <h1>Quest Logs</h1>
+        </section>
+
+        <div class="actions">
+            <a href="/admin/users" class="button">Back to players</a>
+            <a href="/admin/datasets" class="button">Datasets</a>
+            <a href="/admin/quest-bindings" class="button">Quest bindings</a>
+            <a href="/admin/reports" class="button">Reports</a>
+            <form method="post" action="/admin/logout">
+                <button class="button" type="submit">Logout {{ current_user.username }}</button>
+            </form>
+        </div>
+    </div>
+
+    {% if notice_message %}
+        <div class="banner notice">{{ notice_message }}</div>
+    {% endif %}
+    {% if error_message %}
+        <div class="banner error">{{ error_message }}</div>
+    {% endif %}
+
+    <section class="metrics">
+        <article class="metric">
+            <div class="metric-label">Visible logs</div>
+            <div class="metric-value">{{ total_logs }}</div>
+            <div class="metric-sub">Filtered quest attempts</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Success rows</div>
+            <div class="metric-value">{{ success_logs }}</div>
+            <div class="metric-sub">Completed successfully</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Failure rows</div>
+            <div class="metric-value">{{ failure_logs }}</div>
+            <div class="metric-sub">Failed or incomplete</div>
+        </article>
+    </section>
+
+    <section class="toolbar">
+        <form method="get" action="/admin/quest-logs">
+            {% if filters.user_id %}
+                <input type="hidden" name="user_id" value="{{ filters.user_id }}" />
+            {% endif %}
+            <div class="filter-grid">
+                <div>
+                    <label for="q">Search</label>
+                    <input id="q" name="q" type="search" value="{{ filters.q }}" placeholder="Username, quest id, or quest name" />
+                </div>
+                <div>
+                    <label for="quest_id">Quest</label>
+                    <input id="quest_id" name="quest_id" type="text" value="{{ filters.quest_id }}" placeholder="Quest id or name" />
+                </div>
+                <div>
+                    <label for="result">Result</label>
+                    <select id="result" name="result">
+                        <option value="" {% if not filters.result %}selected{% endif %}>All</option>
+                        <option value="success" {% if filters.result == "success" %}selected{% endif %}>Success</option>
+                        <option value="failure" {% if filters.result == "failure" %}selected{% endif %}>Failure</option>
+                        <option value="unknown" {% if filters.result == "unknown" %}selected{% endif %}>Unknown</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="date_from">From</label>
+                    <input id="date_from" name="date_from" type="date" value="{{ filters.date_from }}" />
+                </div>
+                <div>
+                    <label for="date_to">To</label>
+                    <input id="date_to" name="date_to" type="date" value="{{ filters.date_to }}" />
+                </div>
+            </div>
+            <div class="filters" style="margin-top: 0.9rem;">
+                <button class="button accent" type="submit">Apply filters</button>
+                <a href="/admin/quest-logs" class="button">Clear</a>
+            </div>
+        </form>
+    </section>
+
+    <section class="table-shell">
+        <div class="table-head">
+            <strong>Quest attempt rows</strong>
+            <span class="tag">{{ total_logs }} visible</span>
+        </div>
+
+        <table>
+            <thead>
+            <tr>
+                <th>Player</th>
+                <th>Quest</th>
+                <th>Result</th>
+                <th>Recorded at</th>
+                <th>Time</th>
+                <th>Skills used</th>
+                <th>Action</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% if quest_logs %}
+                {% for row in quest_logs %}
+                    <tr>
+                        <td data-label="Player">
+                            <div class="user-name">{{ row.username }}</div>
+                            <div class="muted">USR-{{ "%03d"|format(row.user_id) }}</div>
+                        </td>
+                        <td data-label="Quest">
+                            <div class="user-name">{{ row.quest_name }}</div>
+                            <div class="muted">{{ row.quest_id }}</div>
+                        </td>
+                        <td data-label="Result">
+                            <div class="tag-row">
+                                <span class="tag {{ "success" if row.success == 1 else "failure" }}">{{ row.outcome_label }}</span>
+                                <span class="tag">{{ row.quest_result }}</span>
+                            </div>
+                        </td>
+                        <td data-label="Recorded at">{{ row.effective_at }}</td>
+                        <td data-label="Time">{{ row.time_spent_seconds }}s</td>
+                        <td data-label="Skills used">{{ row.skills_used_summary }}</td>
+                        <td data-label="Action">
+                            <a href="/admin/users/{{ row.user_id }}" class="button accent">View player</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="7" class="empty">No quest attempts match the current filters.</td>
+                </tr>
+            {% endif %}
+            </tbody>
+        </table>
+    </section>
+</div>
+</body>
+</html>

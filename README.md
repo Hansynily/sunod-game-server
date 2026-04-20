@@ -17,8 +17,10 @@ https://github.com/Hansynily/sunod-game
 
 - Collect quest attempt telemetry from the game client
 - Store users, quest attempts, selected skills, and RIASEC profile aggregates
+- Gate player login by admin approval and email verification status
+- Send verification emails with token-based confirmation links
 - Provide admin API endpoints for user and performance data
-- Provide admin web pages to inspect users and user performance
+- Provide admin web pages to inspect users, account state, and player performance
 
 ## Database Choice
 
@@ -65,9 +67,19 @@ The app requires these variables. For local development, create `Project/sunod-g
 MONGODB_URI=mongodb://127.0.0.1:27017
 MONGODB_DB=telemetry_db
 MONGODB_TIMEOUT_MS=5000
+APP_PUBLIC_URL=http://127.0.0.1:8000
+EMAIL_VERIFICATION_TTL_HOURS=24
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USERNAME=
+SMTP_PASSWORD=
+SMTP_FROM_EMAIL=
 ```
 
 `HOST` and `PORT` are optional. If omitted, the server listens on `0.0.0.0:8000`.
+
+SMTP is optional for local development. If `SMTP_HOST` and `SMTP_FROM_EMAIL` are left empty, the server
+will log the verification email content locally instead of sending it.
 
 ## Run Locally
 
@@ -129,6 +141,7 @@ py run_server.py
 ```
 
 On startup, the app pings MongoDB and ensures the required indexes exist.
+Legacy users without lifecycle fields are backfilled as grandfathered and verification-exempt.
 
 ## Local URLs
 
@@ -148,8 +161,32 @@ Admin API:
 - `GET /api/admin/users`
 - `GET /api/admin/users/{user_id}`
 - `GET /api/admin/users/{user_id}/performance`
+- `POST /api/admin/users/{user_id}/set-email`
+- `POST /api/admin/users/{user_id}/approve`
+- `POST /api/admin/users/{user_id}/reject`
+- `POST /api/admin/users/{user_id}/send-verification`
+- `POST /api/admin/users/{user_id}/resend-verification`
+- `POST /api/admin/users/{user_id}/mark-verified`
 
 Admin UI:
+- `GET /admin/login`
 - `GET /admin/users`
 - `GET /admin/users/{user_id}`
+- `POST /admin/users/{user_id}/email`
+- `POST /admin/users/{user_id}/approve`
+- `POST /admin/users/{user_id}/reject`
+- `POST /admin/users/{user_id}/send-verification`
+- `POST /admin/users/{user_id}/resend-verification`
+- `POST /admin/users/{user_id}/mark-verified`
 - `POST /admin/users/{user_id}/delete`
+
+Public verification:
+- `GET /verify-email?token=...`
+
+## Tests
+
+Run the route and admin UI smoke tests with:
+
+```powershell
+..\venv\Scripts\python.exe -m unittest discover -s tests -v
+```

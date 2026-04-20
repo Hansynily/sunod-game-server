@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 
 
 @dataclass(slots=True)
@@ -44,8 +44,22 @@ class User:
     username: str
     email: str | None
     created_at: datetime
+    name: str | None = None
+    birthdate: date | None = None
+    gender: str | None = None
     role: str = "user"
     password_hash: str | None = None
     last_login: datetime | None = None
+    approval_state: str = "pending"
+    email_verification_state: str = "missing"
+    approved_at: datetime | None = None
+    approved_by_user_id: int | None = None
+    verification_sent_at: datetime | None = None
+    verification_expires_at: datetime | None = None
+    verification_token_hash: str | None = None
+    verified_at: datetime | None = None
+    rejection_reason: str | None = None
+    tutorial_completed: bool = False
+    tutorial_completed_at: datetime | None = None
     quest_attempts: list[QuestAttempt] = field(default_factory=list)
     riasec_profile: UserRIASECProfile | None = None
