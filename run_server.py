@@ -3,6 +3,8 @@ from importlib.util import find_spec
 import logging.config
 from pathlib import Path
 import sys
+from create_admin import main as create_admin_railway
+
 
 from dotenv import load_dotenv
 import uvicorn
@@ -30,6 +32,16 @@ def main() -> None:
 
     if "--check" in sys.argv:
         return
+
+    # admin creation before server 
+    try:
+        if os.getenv("ADMIN_USERNAME") and os.getenv("ADMIN_PASSWORD"):
+            print("Running admin bootstrap...")
+            create_admin_main()
+        else:
+            print("Skipping admin bootstrap (no env vars set)")
+    except Exception as e:
+        print(f"Admin bootstrap failed: {e}")
 
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", 8000))
