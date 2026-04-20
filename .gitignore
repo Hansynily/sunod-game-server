@@ -16,7 +16,6 @@ test.bat
 /templates_bak
 /old_templates
 /new_proposed_templates
-/model_assets
 /app/__pycache__
 /tests
 *.bat

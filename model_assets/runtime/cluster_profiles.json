@@ -1,0 +1,82 @@
+{
+  "0": {
+    "label": "Cluster 0",
+    "holland_code": "N/A",
+    "example_careers": [
+      "Psychology",
+      "Biology",
+      "English"
+    ],
+    "is_outlier": false
+  },
+  "1": {
+    "label": "Cluster 1",
+    "holland_code": "N/A",
+    "example_careers": [
+      "Psychology",
+      "Nursing",
+      "Social Work"
+    ],
+    "is_outlier": false
+  },
+  "2": {
+    "label": "Cluster 2",
+    "holland_code": "N/A",
+    "example_careers": [
+      "Psychology",
+      "Business",
+      "English"
+    ],
+    "is_outlier": false
+  },
+  "3": {
+    "label": "Cluster 3",
+    "holland_code": "N/A",
+    "example_careers": [
+      "Psychology",
+      "English",
+      "Education"
+    ],
+    "is_outlier": false
+  },
+  "4": {
+    "label": "Cluster 4",
+    "holland_code": "N/A",
+    "example_careers": [
+      "Psychology",
+      "Business",
+      "Accounting"
+    ],
+    "is_outlier": false
+  },
+  "5": {
+    "label": "Cluster 5",
+    "holland_code": "N/A",
+    "example_careers": [
+      "Psychology",
+      "English",
+      "Business"
+    ],
+    "is_outlier": false
+  },
+  "6": {
+    "label": "Cluster 6",
+    "holland_code": "N/A",
+    "example_careers": [
+      "Psychology",
+      "English",
+      "Biology"
+    ],
+    "is_outlier": false
+  },
+  "7": {
+    "label": "Cluster 7",
+    "holland_code": "N/A",
+    "example_careers": [
+      "Engineering",
+      "Psychology",
+      "Civil Engineering"
+    ],
+    "is_outlier": false
+  }
+}
