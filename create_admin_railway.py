@@ -43,6 +43,27 @@ def _prompt_password() -> str:
         return password
 
 
+def _get_name(username: str) -> str:
+    value = os.getenv("ADMIN_NAME")
+    if value and value.strip():
+        return value.strip()
+    return username
+
+
+def _get_birthdate() -> str:
+    value = os.getenv("ADMIN_BIRTHDATE")
+    if value and value.strip():
+        return value.strip()
+    return "2000-01-01"
+
+
+def _get_gender() -> str:
+    value = os.getenv("ADMIN_GENDER")
+    if value and value.strip():
+        return value.strip()
+    return "prefer_not_to_say"
+
+
 def main() -> None:
     repository = TelemetryRepository(get_database())
     username = ""
@@ -55,12 +76,19 @@ def main() -> None:
             return
 
         password = _prompt_password()
+        name = _get_name(username)
+        birthdate = _get_birthdate()
+        gender = _get_gender()
+
         user = repository.create_user(
             player_id=str(uuid.uuid4()),
             username=username,
             password_hash=hash_password(password),
             email=None,
             role="admin",
+            name=name,
+            birthdate=birthdate,
+            gender=gender,
         )
         print(f"Admin account created for '{user.username}' with user_id={user.id}.")
     except DuplicateUserError:
