@@ -1473,10 +1473,26 @@ def predict_cluster(
             ),
         )
 
+    # Prefer the player's gameplay-derived RIASEC profile (computed and stored at
+    # run-complete) so the career visibly follows their Holland code. Fall back to the
+    # raw cluster RF on the client vector only if no session run is available.
+    session_run = db.find_session_run_for_player(
+        player_id=payload.player_id,
+        session_id=payload.session_id,
+    )
+    stored_riasec = session_run.get("riasec_scores") if session_run else None
+    use_holland = bool(stored_riasec) and any(float(v) > 0 for v in stored_riasec.values())
+
     try:
-        predicted_cluster = cluster_runtime.predict_cluster(payload.features, context.cluster_status)
+        if use_holland:
+            predicted_cluster = cluster_runtime.holland_match_cluster(stored_riasec)
+            career_features = cluster_runtime.build_feature_vector_from_scores(stored_riasec)
+        else:
+            predicted_cluster = cluster_runtime.predict_cluster(payload.features, context.cluster_status)
+            career_features = payload.features
+
         career_cluster = cluster_runtime.predict_career_cluster(
-            payload.features,
+            career_features,
             predicted_cluster,
             context.career_status,
         )

@@ -200,6 +200,53 @@ def predict_career_cluster(
     return int(predictions[0])
 
 
+# Holland code of each NAMED career cluster (outlier clusters 1 and 4 are excluded
+# on purpose — a real player profile should never be routed into an outlier bucket).
+CLUSTER_HOLLAND_CODES = {
+    0: "IA",   # IA Research
+    2: "RIC",  # RIC Engineering
+    3: "AS",   # AS Art
+    5: "SEC",  # SEC Business
+    6: "S",    # S Social Services
+    7: "SIA",  # SIA Healthcare
+}
+_RIASEC_ORDER = ("R", "I", "A", "S", "E", "C")
+
+
+def holland_match_cluster(riasec_scores: dict[str, float]) -> int:
+    """Pick the named cluster whose Holland code best matches the player's RIASEC
+    profile (highest average score across the code's letters). Deterministic and
+    traceable — this is what makes the career visibly follow the player's RIASEC."""
+    scores = {str(k).upper(): float(v) for k, v in riasec_scores.items()}
+    best_cluster = None
+    best_score = float("-inf")
+    for cluster_id, code in CLUSTER_HOLLAND_CODES.items():
+        avg = sum(scores.get(letter, 0.0) for letter in code) / len(code)
+        if avg > best_score:
+            best_score = avg
+            best_cluster = cluster_id
+    return int(best_cluster)
+
+
+def build_feature_vector_from_scores(
+    riasec_scores: dict[str, float],
+    peak: float = 5.0,
+    base: float = 2.0,
+) -> list[float]:
+    """Map the 6-dim RIASEC profile onto the 48-feature questionnaire layout so the
+    career sub-model sees an in-distribution vector. Each dimension's 8 slots are set
+    to base + (peak-base) * (score / max_score)."""
+    scores = {str(k).upper(): float(v) for k, v in riasec_scores.items()}
+    max_score = max(scores.values()) if scores else 0.0
+    if max_score <= 0.0:
+        max_score = 1.0
+    vector: list[float] = []
+    for letter in _RIASEC_ORDER:
+        normalized = scores.get(letter, 0.0) / max_score
+        vector.extend([base + (peak - base) * normalized] * 8)
+    return vector
+
+
 def _load_cluster_model() -> ClusterModelStatus:
     model_path = _get_cluster_model_path()
     if not model_path.exists():
