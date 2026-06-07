@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
 from app import schemas
+
+LOGGER = logging.getLogger(__name__)
 
 
 DIMENSIONS = ("r", "i", "a", "s", "e", "c")
@@ -27,10 +30,14 @@ CHALLENGE_DEFINITIONS = (
     ChallengeDefinition("L1_CatQuest", "S"),
     ChallengeDefinition("L1_LostFriend", "C"),
     ChallengeDefinition("L2_MissingKey", "R"),
-    ChallengeDefinition("L2_CatMedicine", "R"),
-    ChallengeDefinition("L3_FallenSparrow", "I"),
+    ChallengeDefinition("L2_CatMedicine", "A"),
+    ChallengeDefinition("L3_FallenSparrow", "S"),
     ChallengeDefinition("L3_BlockedPath", "C"),
     ChallengeDefinition("L3_SlipperyWay", "E"),
+    # New data-driven quest rooms — codes match what the game client sends.
+    ChallengeDefinition("r_pump", "R"),
+    ChallengeDefinition("a_mural", "A"),
+    ChallengeDefinition("i_map", "I"),
 )
 
 CHALLENGE_TAG_BY_ID = {
@@ -213,19 +220,27 @@ def write_feature_schema(output_path: str | Path) -> None:
 def _validate_round_catalog(payload: schemas.RunSummaryTelemetryIn) -> None:
     seen_challenge_ids: set[str] = set()
     for round_entry in payload.rounds:
-        expected_tag = CHALLENGE_TAG_BY_ID.get(round_entry.challenge_id)
-        if expected_tag is None:
-            raise ValueError(
-                f"Unsupported challenge_id '{round_entry.challenge_id}' for feature extraction."
-            )
-
         if round_entry.challenge_id in seen_challenge_ids:
             raise ValueError(
                 f"Duplicate challenge_id '{round_entry.challenge_id}' found in run summary."
             )
         seen_challenge_ids.add(round_entry.challenge_id)
 
+        expected_tag = CHALLENGE_TAG_BY_ID.get(round_entry.challenge_id)
+        if expected_tag is None:
+            LOGGER.warning(
+                "Unknown challenge_id '%s' — not in catalog. "
+                "Using client-provided primary_riasec '%s' for feature extraction.",
+                round_entry.challenge_id,
+                round_entry.primary_riasec,
+            )
+            continue
+
         if round_entry.primary_riasec.upper() != expected_tag:
-            raise ValueError(
-                "challenge_id and primary_riasec do not match the shared challenge catalog."
+            LOGGER.warning(
+                "challenge_id '%s' expects primary_riasec '%s' but client sent '%s'. "
+                "Catalog tag will be used for solved/stars dimension attribution.",
+                round_entry.challenge_id,
+                expected_tag,
+                round_entry.primary_riasec,
             )

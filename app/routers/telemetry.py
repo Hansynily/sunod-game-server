@@ -21,7 +21,6 @@ from app import (
     cluster_runtime,
     feature_pipeline,
     mailer,
-    ml_runtime,
     model_training,
     schemas,
 )
@@ -1358,37 +1357,37 @@ def create_run_complete_telemetry(
         ) from exc
 
     source = "Session Telemetry"
-    model_version = "telemetry_v2"
+    model_version = "rubric_v1"
     message = "Run-complete telemetry recorded successfully."
     riasec_scores = _empty_admin_riasec_scores()
     holland_code = ""
     career_family = "Pending Cluster Result"
     career_result = "Pending Cluster Result"
 
-    runtime_status = ml_runtime.get_model_status()
-    if runtime_status.available:
-        try:
-            feature_vector = feature_pipeline.build_feature_vector(aggregated_features)
-            predicted_scores = ml_runtime.predict_scores(feature_vector, runtime_status)
-            skill_use_totals = feature_pipeline.extract_skill_use_totals(aggregated_features)
-            riasec_scores = {
-                dimension: max(0, min(10, int(round(predicted_scores[dimension]))))
-                for dimension in feature_pipeline.DIMENSIONS
-            }
-            holland_code = career_mapping.derive_holland_code(predicted_scores, skill_use_totals)
-            career_family = career_mapping.derive_career_family(predicted_scores)
-            career_result = career_family
-            source = "Runtime ML Model"
-            model_version = runtime_status.model_version or "runtime-model"
-        except Exception as exc:
-            LOGGER.exception("Runtime model prediction failed for session_id=%s", payload.session_id)
-            audit_log(
-                "RUN_COMPLETE_RUNTIME_MODEL_FAILED",
-                player_id=user.player_id,
-                username=user.username,
-                session_id=payload.session_id,
-                reason=str(exc),
+    # Derive RIASEC dimension scores from gameplay data.
+    # Career prediction is handled separately by the cluster model via /api/predict.
+    try:
+        skill_use_totals = feature_pipeline.extract_skill_use_totals(aggregated_features)
+        raw_scores = {
+            dim: float(
+                aggregated_features.get(f"stars_{dim}", 0) * 2
+                + aggregated_features.get(f"solved_{dim}", 0) * 3
+                + aggregated_features.get(f"skill_ratio_{dim}", 0) * 5
             )
+            for dim in feature_pipeline.DIMENSIONS
+        }
+        total_raw = sum(raw_scores.values())
+        if total_raw > 0:
+            max_raw = max(raw_scores.values())
+            riasec_scores = {
+                dim: max(0, min(10, int(round(raw_scores[dim] / max_raw * 10))))
+                for dim in feature_pipeline.DIMENSIONS
+            }
+            holland_code = career_mapping.derive_holland_code(raw_scores, skill_use_totals)
+            career_family = career_mapping.derive_career_family(raw_scores)
+            career_result = career_family
+    except Exception as exc:
+        LOGGER.exception("Gameplay rubric scoring failed for session_id=%s", payload.session_id)
 
     db.add_session_run(
         player_id=user.player_id,

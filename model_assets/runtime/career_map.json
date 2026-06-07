@@ -1,5 +1,62 @@
 {
-  "4": {
-    "6": "Tourism Officer"
+  "0": {
+    "0": "Technical Writer",
+    "1": "Computer Scientist",
+    "2": "Wildlife Biologists",
+    "3": "Chemist",
+    "4": "Biologist",
+    "5": "Professor",
+    "6": "Zoologist",
+    "7": "Epidemiologist"
+  },
+  "2": {
+    "0": "Architect",
+    "1": "Programmer",
+    "2": "Civil Engineer",
+    "3": "Computer Engineer",
+    "4": "Web Developer",
+    "5": "Mechanical Engineer",
+    "6": "Designer",
+    "7": "Carpenter"
+  },
+  "3": {
+    "0": "Creative Writers",
+    "1": "Photographer",
+    "2": "Graphic Artist",
+    "3": "Writer",
+    "4": "Model",
+    "5": "Musician",
+    "6": "Entertainer",
+    "7": "Music Writers"
+  },
+  "5": {
+    "0": "Marketing",
+    "1": "Financial Analyst",
+    "2": "Fashion Designer",
+    "3": "Entrepreneur",
+    "4": "Accountant",
+    "5": "Restaurant Manager",
+    "6": "Real Estate Agent",
+    "7": "Statistician"
+  },
+  "6": {
+    "0": "Lawyer",
+    "1": "Librarian",
+    "2": "Teacher",
+    "3": "Chef",
+    "4": "Tourism Officer",
+    "5": "Counselor",
+    "6": "Culinary Arts",
+    "7": "Radio Broadcaster"
+  },
+  "7": {
+    "0": "Doctor",
+    "1": "Pharmacist",
+    "2": "Fitness Trainer",
+    "3": "Physical Therapist",
+    "4": "Veterinarian",
+    "5": "Dietician",
+    "6": "Nurse",
+    "7": "Athlete"
   }
 }
