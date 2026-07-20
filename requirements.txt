@@ -8,5 +8,8 @@ python-dotenv>=1.0.0
 python-multipart>=0.0.9
 numpy
 pandas
-scikit-learn
+# Pinned: the runtime .pkl models in model_assets/ were written by scikit-learn 1.8.0.
+# A newer version can fail or silently misread those pickles on redeploy, taking the
+# whole prediction path down. Keep in sync with sunod-model/requirements.txt.
+scikit-learn==1.8.0
 joblib

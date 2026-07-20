@@ -3,8 +3,10 @@ from dataclasses import dataclass
 import hashlib
 import hmac
 import json
+import logging
 import os
 import secrets
+from pathlib import Path
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -17,7 +19,65 @@ from app.repository import TelemetryRepository
 _ALGORITHM = "pbkdf2_sha256"
 _ITERATIONS = 390000
 _SALT_BYTES = 16
-_TOKEN_SECRET = os.getenv("AUTH_TOKEN_SECRET", "sunod-auth-secret-change-me")
+_logger = logging.getLogger("app.security")
+
+
+def _resolve_token_secret() -> str:
+    """Return the HMAC secret for signing access tokens.
+
+    Priority:
+      1. AUTH_TOKEN_SECRET environment variable (recommended for any real deployment).
+      2. A random secret persisted to a local file, so tokens survive server restarts
+         without shipping a guessable constant.
+      3. A per-process random secret if the file cannot be written.
+
+    The old behaviour fell back to a hardcoded string ("...change-me"), which let anyone
+    forge login tokens. That constant has been removed.
+    """
+    env_secret = (os.getenv("AUTH_TOKEN_SECRET") or "").strip()
+    if env_secret:
+        return env_secret
+
+    secret_path = Path(__file__).resolve().parent.parent / ".auth_token_secret"
+    try:
+        existing = secret_path.read_text(encoding="utf-8").strip()
+        if existing:
+            return existing
+    except FileNotFoundError:
+        pass
+    except OSError:
+        _logger.warning(
+            "AUTH_TOKEN_SECRET not set and %s is unreadable; using a per-process secret "
+            "(logins reset on restart).",
+            secret_path,
+        )
+        return secrets.token_urlsafe(48)
+
+    generated = secrets.token_urlsafe(48)
+    try:
+        secret_path.write_text(generated, encoding="utf-8")
+        _logger.warning(
+            "AUTH_TOKEN_SECRET not set; generated a persistent random secret at %s. "
+            "Set AUTH_TOKEN_SECRET in the environment for production deployments, and keep "
+            "this file out of shared/version-controlled folders.",
+            secret_path,
+        )
+    except OSError:
+        _logger.warning(
+            "AUTH_TOKEN_SECRET not set and could not persist a secret; using a per-process "
+            "secret (logins reset on restart).",
+        )
+    return generated
+
+
+_TOKEN_SECRET = _resolve_token_secret()
+
+
+def get_token_secret() -> str:
+    """The resolved HMAC secret, shared by every module that signs or hashes tokens."""
+    return _TOKEN_SECRET
+
+
 _TOKEN_SCHEME = HTTPBearer(auto_error=False)
 ADMIN_SESSION_COOKIE = "sunod_admin_session"
 

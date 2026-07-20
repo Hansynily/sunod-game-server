@@ -287,6 +287,9 @@
                     <label for="source">Source</label>
                     <select id="source" name="source">
                         <option value="" {% if not filters.source %}selected{% endif %}>All</option>
+                        <option value="model_rf" {% if filters.source == "model_rf" %}selected{% endif %}>Model RF (48-item)</option>
+                        <option value="holland_fallback" {% if filters.source == "holland_fallback" %}selected{% endif %}>Holland Fallback</option>
+                        <option value="Cluster RF + Career RF" {% if filters.source == "Cluster RF + Career RF" %}selected{% endif %}>Cluster RF + Career RF (legacy)</option>
                         <option value="Runtime ML Model" {% if filters.source == "Runtime ML Model" %}selected{% endif %}>Runtime ML Model</option>
                         <option value="Cluster Model" {% if filters.source == "Cluster Model" %}selected{% endif %}>Cluster Model</option>
                         <option value="Session Telemetry" {% if filters.source == "Session Telemetry" %}selected{% endif %}>Session Telemetry</option>

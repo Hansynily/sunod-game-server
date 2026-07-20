@@ -3,6 +3,7 @@ import logging
 import os
 from pathlib import Path
 import re
+import smtplib
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlencode
@@ -861,13 +862,25 @@ def _send_verification_email(db: TelemetryRepository, user) -> tuple[Any, mailer
         verification_link=verification_link,
         expires_in_hours=settings.verification_ttl_hours,
     )
-    delivery_result = mailer.send_email(
-        to_email=updated_user.email,
-        subject="Verify your SUNOD account",
-        html_body=html_body,
-        text_body=text_body,
-        verification_link=verification_link,
-    )
+    try:
+        delivery_result = mailer.send_email(
+            to_email=updated_user.email,
+            subject="Verify your SUNOD account",
+            html_body=html_body,
+            text_body=text_body,
+            verification_link=verification_link,
+        )
+    except (smtplib.SMTPException, OSError, RuntimeError) as exc:
+        # SMTP unreachable / misconfigured. Turn the raw 500 into a clear message and
+        # point the admin at the manual workaround instead of stranding them.
+        LOGGER.warning("Verification email send failed for user %s: %s", updated_user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                "Could not send the verification email (SMTP error). "
+                "Check SMTP settings, or use 'Mark verified' on the user to proceed."
+            ),
+        ) from exc
     return updated_user, delivery_result
 
 
@@ -1164,8 +1177,55 @@ def login_user(
     return _build_auth_response(logged_in_user)
 
 
+def _require_self_or_admin(current_user, user_id: int) -> None:
+    # A user may read/write only their own record; admins may act on anyone.
+    if current_user.id != user_id and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only access your own records.",
+        )
+
+
+def _check_destructive_admin_action(
+    db: TelemetryRepository,
+    current_admin,
+    target_user,
+    *,
+    action_label: str,
+) -> str | None:
+    """Returns an error message if rejecting/demoting/deleting target_user would be
+    an admin acting on themselves, or removing the last remaining admin account - both
+    unrecoverable without manual DB surgery. Returns None if the action is safe."""
+    if target_user.id == current_admin.id:
+        return f"You can't {action_label} your own account while logged in as it."
+
+    if target_user.role == "admin" and db.count_admins() <= 1:
+        return f"This is the last admin account - {action_label} would lock everyone out of the admin panel."
+
+    return None
+
+
+def _guard_destructive_admin_action(
+    db: TelemetryRepository,
+    current_admin,
+    target_user,
+    *,
+    action_label: str,
+) -> None:
+    """JSON-API variant: raises 400 if the action is unsafe. Call BEFORE the destructive
+    repository call, for reject / make-user (demote) / delete."""
+    error = _check_destructive_admin_action(db, current_admin, target_user, action_label=action_label)
+    if error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
+
+
 @router.get("/users/{user_id}", response_model=schemas.User)
-def get_user(user_id: int, db: TelemetryRepository = Depends(get_db)):
+def get_user(
+    user_id: int,
+    current_user = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    _require_self_or_admin(current_user, user_id)
     user = db.find_user_by_id(user_id)
     if not user:
         raise HTTPException(
@@ -1219,6 +1279,179 @@ def mark_tutorial_complete(
     )
 
 
+@router.get(
+    "/users/me/progress",
+    response_model=schemas.PlayerProgressOut,
+)
+def get_my_progress(
+    current_user = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    """Home-screen 'My Progress' - the caller's own latest run, so an in-progress player can
+    see a provisional predicted career before finishing all 48 quests. Player-scoped by the
+    auth token; no user_id in the path, so there is no way to read another player's progress.
+
+    Counts come from the run-state checkpoint: that document is cumulative across every
+    session of the playthrough, while session_runs documents are per-session. A resumed
+    run that completed 3 quests yesterday and 2 today must show 5, not 2. The page keys
+    entirely off run-state, so Reset Run (which deletes it) empties the page instead of
+    falling back to stale per-session counts; admin reports keep the full history either
+    way. Career fields still come from the latest session_run (predictions live there)."""
+    run_state = db.get_run_state(current_user.player_id)
+    if not run_state:
+        return schemas.PlayerProgressOut(has_data=False)
+
+    run = db.find_latest_run_for_player(current_user.player_id)
+
+    records = run_state.get("quest_records") or []
+    completed_ids = run_state.get("completed_quest_ids") or []
+    if records:
+        quests_attempted = len(records)
+        quests_completed = sum(1 for r in records if r.get("completed"))
+    else:
+        # Checkpoints written before quest_records existed: the completed-ids list
+        # only ever contained completed quests, so it is both counts' best estimate.
+        quests_attempted = len(completed_ids)
+        quests_completed = len(completed_ids)
+    total_stars = int(run_state.get("total_stars") or 0)
+
+    if not run:
+        return schemas.PlayerProgressOut(
+            has_data=True,
+            quests_completed=quests_completed,
+            quests_attempted=quests_attempted,
+            total_stars=total_stars,
+        )
+
+    riasec_scores = run.get("riasec_scores")
+    riasec_out = None
+    if riasec_scores:
+        try:
+            riasec_out = schemas.RiasecScoresOut(**_normalize_admin_riasec_scores(riasec_scores))
+        except Exception:
+            riasec_out = None
+
+    return schemas.PlayerProgressOut(
+        has_data=True,
+        quests_completed=quests_completed,
+        quests_attempted=quests_attempted,
+        total_stars=total_stars,
+        predicted_career_result=run.get("career_result") or None,
+        predicted_career_family=run.get("career_family") or None,
+        predicted_cluster_label=run.get("cluster_label") or None,
+        predicted_holland_code=run.get("cluster_holland_code") or run.get("holland_code") or None,
+        predicted_cluster=run.get("predicted_cluster", -1) if run.get("predicted_cluster") is not None else -1,
+        prediction_source=run.get("prediction_source") or run.get("cluster_source") or run.get("source") or None,
+        riasec_scores=riasec_out,
+        last_updated=run.get("created_at"),
+    )
+
+
+@router.get(
+    "/users/me/run-state",
+    response_model=schemas.RunStateOut,
+)
+def get_my_run_state(
+    current_user = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    """Continue - the caller's in-progress save-state, if any. Player-scoped by the auth
+    token, same pattern as /users/me/progress."""
+    state = db.get_run_state(current_user.player_id)
+    if not state:
+        return schemas.RunStateOut(has_state=False)
+
+    return _run_state_to_out(state)
+
+
+def _run_state_to_out(state: dict) -> schemas.RunStateOut:
+    records = []
+    for raw in state.get("quest_records") or []:
+        try:
+            records.append(schemas.RunStateQuestRecord(**raw))
+        except Exception:
+            continue
+    return schemas.RunStateOut(
+        has_state=True,
+        session_id=state.get("session_id"),
+        completed_quest_ids=state.get("completed_quest_ids") or [],
+        quest_records=records,
+        riasec_scores=state.get("riasec_scores") or {},
+        owned_skills=state.get("owned_skills") or [],
+        total_stars=int(state.get("total_stars") or 0),
+        floor_scene=state.get("floor_scene") or None,
+        tutorial_completed=bool(state.get("tutorial_completed")),
+        run_finished=bool(state.get("run_finished")),
+        updated_at=state.get("updated_at"),
+    )
+
+
+@router.put(
+    "/users/me/run-state",
+    response_model=schemas.RunStateOut,
+)
+def put_my_run_state(
+    payload: schemas.RunStateIn,
+    current_user = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    """Checkpoint push - called after each quest completes. Upserts the single current
+    save-state for the caller; does not touch session_runs history."""
+    state = db.upsert_run_state(
+        player_id=current_user.player_id,
+        session_id=payload.session_id,
+        completed_quest_ids=payload.completed_quest_ids,
+        riasec_scores=payload.riasec_scores,
+        owned_skills=payload.owned_skills,
+        total_stars=payload.total_stars,
+        floor_scene=payload.floor_scene,
+        tutorial_completed=payload.tutorial_completed,
+        run_finished=payload.run_finished,
+        quest_records=[r.model_dump() for r in payload.quest_records],
+    )
+    return _run_state_to_out(state)
+
+
+@router.post(
+    "/users/me/run-state/finish",
+    response_model=schemas.RunStateResetOut,
+)
+def finish_my_run_state(
+    current_user = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    """End Run - marks the caller's run finished so Continue greys out. One atomic flag
+    set, no client round trip of the whole state, works even if no checkpoint exists."""
+    db.finish_run_state(current_user.player_id)
+    audit_log(
+        "RUN_STATE_FINISHED",
+        player_id=current_user.player_id,
+        username=current_user.username,
+        via="api",
+    )
+    return schemas.RunStateResetOut(success=True, message="Run finished.")
+
+
+@router.post(
+    "/users/me/run-state/reset",
+    response_model=schemas.RunStateResetOut,
+)
+def reset_my_run_state(
+    current_user = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    """Reset Run - clears the caller's save-state only. Does NOT delete session_runs
+    history (past completed runs/predictions stay for reporting)."""
+    db.clear_run_state(current_user.player_id)
+    audit_log(
+        "RUN_STATE_RESET",
+        player_id=current_user.player_id,
+        username=current_user.username,
+        via="api",
+    )
+    return schemas.RunStateResetOut(success=True, message="Run reset.")
+
+
 @router.post(
     "/users/{user_id}/quest-attempts",
     response_model=schemas.QuestAttempt,
@@ -1227,8 +1460,10 @@ def mark_tutorial_complete(
 def create_quest_attempt(
     user_id: int,
     quest_in: schemas.QuestAttemptCreate,
+    current_user = Depends(get_current_user),
     db: TelemetryRepository = Depends(get_db),
 ):
+    _require_self_or_admin(current_user, user_id)
     user = _require_user_or_404(db, user_id)
 
     quest_attempt = db.add_quest_attempt(
@@ -1263,7 +1498,12 @@ def create_quest_attempt(
     "/users/{user_id}/quest-attempts",
     response_model=list[schemas.QuestAttempt],
 )
-def list_quest_attempts(user_id: int, db: TelemetryRepository = Depends(get_db)):
+def list_quest_attempts(
+    user_id: int,
+    current_user = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    _require_self_or_admin(current_user, user_id)
     user = db.find_user_by_id(user_id)
     if not user:
         raise HTTPException(
@@ -1443,7 +1683,9 @@ def predict_cluster(
     payload: schemas.PredictionIn,
     db: TelemetryRepository = Depends(get_db),
 ):
-    if len(payload.features) != 48:
+    # An empty list means "no vector" (schema default) - that is a legitimate
+    # fallback case, not a malformed request. Only reject wrong non-empty sizes.
+    if payload.features and len(payload.features) != 48:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="features must contain exactly 48 floats.",
@@ -1473,23 +1715,51 @@ def predict_cluster(
             ),
         )
 
-    # Prefer the player's gameplay-derived RIASEC profile (computed and stored at
-    # run-complete) so the career visibly follows their Holland code. Fall back to the
-    # raw cluster RF on the client vector only if no session run is available.
+    # Option B: the client sends genuine per-item 1-5 scores, so the Random Forest on the
+    # 48-feature vector is the PRIMARY prediction path. Holland-code matching on the stored
+    # gameplay rubric scores is only a FALLBACK, used when the feature vector is missing,
+    # fails validation (any value outside 1-5), or carries no signal: an all-identical
+    # vector is the client's neutral-3.0 padding for an (almost) empty run, and an RF
+    # prediction from pure padding would be noise presented as a real result.
+    features_valid = (
+        len(payload.features) == 48
+        and all(1.0 <= float(value) <= 5.0 for value in payload.features)
+        and len({float(value) for value in payload.features}) > 1
+    )
+
     session_run = db.find_session_run_for_player(
         player_id=payload.player_id,
         session_id=payload.session_id,
     )
     stored_riasec = session_run.get("riasec_scores") if session_run else None
-    use_holland = bool(stored_riasec) and any(float(v) > 0 for v in stored_riasec.values())
+    has_rubric_fallback = bool(stored_riasec) and any(float(v) > 0 for v in stored_riasec.values())
+
+    if not features_valid and not has_rubric_fallback:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="features are missing or failed validation (48 values within 1-5, not all identical) and no stored rubric scores are available for fallback.",
+        )
+
+    use_random_forest = features_valid
+    prediction_source = "model_rf" if use_random_forest else "holland_fallback"
 
     try:
-        if use_holland:
-            predicted_cluster = cluster_runtime.holland_match_cluster(stored_riasec)
-            career_features = cluster_runtime.build_feature_vector_from_scores(stored_riasec)
-        else:
+        if use_random_forest:
             predicted_cluster = cluster_runtime.predict_cluster(payload.features, context.cluster_status)
             career_features = payload.features
+
+            # The main RF can land on an outlier bucket (clusters 1/4), which has no
+            # careers in career_map - the player would see "not yet mapped". Redirect to
+            # the best-matching NAMED cluster via the stored rubric so a real career is
+            # returned. (holland_match_cluster excludes the outlier buckets by design.)
+            redirect_profile = cluster_mapping.get_cluster_profile(predicted_cluster)
+            if redirect_profile is not None and redirect_profile.is_outlier and has_rubric_fallback:
+                predicted_cluster = cluster_runtime.holland_match_cluster(stored_riasec)
+                career_features = cluster_runtime.build_feature_vector_from_scores(stored_riasec)
+                prediction_source = "model_rf_outlier_redirect"
+        else:
+            predicted_cluster = cluster_runtime.holland_match_cluster(stored_riasec)
+            career_features = cluster_runtime.build_feature_vector_from_scores(stored_riasec)
 
         career_cluster = cluster_runtime.predict_career_cluster(
             career_features,
@@ -1515,6 +1785,18 @@ def predict_cluster(
             detail="Prediction failed on the server.",
         ) from exc
 
+    # Stamp which path ran onto the session run so /session-cluster persists it and
+    # admin reports can distinguish model_rf from holland_fallback. Best-effort only -
+    # a stamping hiccup must not fail an otherwise successful prediction.
+    try:
+        db.stamp_prediction_source(
+            player_id=payload.player_id,
+            session_id=payload.session_id,
+            prediction_source=prediction_source,
+        )
+    except Exception:
+        LOGGER.warning("Could not stamp prediction source on the session run.", exc_info=True)
+
     return schemas.PredictionOut(
         predicted_cluster=predicted_cluster,
         career_cluster=career_cluster,
@@ -1523,7 +1805,7 @@ def predict_cluster(
         career_family=cluster_profile.label,
         cluster_holland_code=cluster_profile.holland_code,
         cluster_example_careers=list(cluster_profile.example_careers),
-        source=context.source,
+        source=prediction_source,
         model_version=context.model_version,
         binding_source=context.binding_source,
         bundle_key=context.bundle_key,
@@ -1571,7 +1853,13 @@ def record_session_cluster(
         )
         or _neutral_cluster_result(payload.predicted_cluster, payload.career_cluster)
     )
-    cluster_source = context.source
+    # Prefer the source stamped by /api/predict (model_rf / holland_fallback);
+    # context.source is only the generic runtime label used when no stamp exists.
+    stamped_run = db.find_session_run_for_player(
+        player_id=payload.player_id,
+        session_id=payload.session_id,
+    )
+    cluster_source = (stamped_run or {}).get("prediction_source") or context.source
     cluster_model_version = context.model_version
     updated_run = db.attach_cluster_result(
         player_id=payload.player_id,
@@ -1895,7 +2183,8 @@ def admin_reject_user(
     current_admin=Depends(get_current_user),
     db: TelemetryRepository = Depends(get_db),
 ):
-    _require_user_or_404(db, user_id)
+    target_user = _require_user_or_404(db, user_id)
+    _guard_destructive_admin_action(db, current_admin, target_user, action_label="reject")
     user = db.reject_user(
         user_id,
         rejection_reason=payload.rejection_reason,
@@ -2031,6 +2320,7 @@ def admin_make_user_standard(
     db: TelemetryRepository = Depends(get_db),
 ):
     existing_user = _require_user_or_404(db, user_id)
+    _guard_destructive_admin_action(db, current_admin, existing_user, action_label="demote")
     user = db.set_user_role(user_id, "user")
     if not user:
         raise HTTPException(
@@ -2903,6 +3193,10 @@ def admin_reject_user_page(
 ):
     current_admin = _require_admin_ui_user(request, db)
     destination = redirect_to or f"/admin/users/{user_id}"
+    target_user = _require_user_or_404(db, user_id)
+    guard_error = _check_destructive_admin_action(db, current_admin, target_user, action_label="reject")
+    if guard_error:
+        return _redirect_with_flash(destination, error=guard_error)
     user = db.reject_user(
         user_id,
         rejection_reason=rejection_reason,
@@ -3057,6 +3351,9 @@ def admin_make_user_standard_page(
     current_admin = _require_admin_ui_user(request, db)
     destination = redirect_to or f"/admin/users/{user_id}"
     existing_user = _require_user_or_404(db, user_id)
+    guard_error = _check_destructive_admin_action(db, current_admin, existing_user, action_label="demote")
+    if guard_error:
+        return _redirect_with_flash(destination, error=guard_error)
     user = db.set_user_role(user_id, "user")
     if not user:
         raise HTTPException(
@@ -3086,6 +3383,9 @@ def admin_delete_user(
     current_admin = _require_admin_ui_user(request, db)
     destination = redirect_to or "/admin/users"
     target_user = _require_user_or_404(db, user_id)
+    guard_error = _check_destructive_admin_action(db, current_admin, target_user, action_label="delete")
+    if guard_error:
+        return _redirect_with_flash(destination, error=guard_error)
     deleted = db.delete_user(user_id)
     if not deleted:
         raise HTTPException(

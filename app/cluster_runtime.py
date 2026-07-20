@@ -19,6 +19,12 @@ RUNTIME_ARTIFACTS_DIR = BACKEND_ROOT / "model_assets" / "runtime"
 BUNDLE_ROOT = BACKEND_ROOT / "model_assets" / "bundles"
 CLUSTER_MODEL_PATH = RUNTIME_ARTIFACTS_DIR / "riasec_cluster_model.pkl"
 CAREER_MODEL_DIR = RUNTIME_ARTIFACTS_DIR
+# Reference centroids for the FROZEN partition career_map.json/CLUSTER_HOLLAND_CODES
+# were authored against. Used by model_training.py to re-identify cluster identity
+# after an admin retrain (K-Means ids are not stable across runs). Regenerate this file
+# ONLY when the frozen partition is deliberately changed (and career_map.json is
+# re-authored to match) - see model_training.py's module docstring for the snippet.
+CANONICAL_CENTROIDS_PATH = BACKEND_ROOT / "model_assets" / "canonical_cluster_centroids.json"
 EXPECTED_CLUSTER_IDS = tuple(range(8))
 EXPECTED_FEATURE_NAMES = tuple(
     f"{dimension}{slot}"
@@ -201,7 +207,7 @@ def predict_career_cluster(
 
 
 # Holland code of each NAMED career cluster (outlier clusters 1 and 4 are excluded
-# on purpose — a real player profile should never be routed into an outlier bucket).
+# on purpose - a real player profile should never be routed into an outlier bucket).
 CLUSTER_HOLLAND_CODES = {
     0: "IA",   # IA Research
     2: "RIC",  # RIC Engineering
@@ -216,7 +222,7 @@ _RIASEC_ORDER = ("R", "I", "A", "S", "E", "C")
 def holland_match_cluster(riasec_scores: dict[str, float]) -> int:
     """Pick the named cluster whose Holland code best matches the player's RIASEC
     profile (highest average score across the code's letters). Deterministic and
-    traceable — this is what makes the career visibly follow the player's RIASEC."""
+    traceable - this is what makes the career visibly follow the player's RIASEC."""
     scores = {str(k).upper(): float(v) for k, v in riasec_scores.items()}
     best_cluster = None
     best_score = float("-inf")

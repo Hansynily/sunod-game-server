@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from datetime import datetime
 import hashlib
 import hmac
-import os
 import secrets
 from typing import Any
 
@@ -37,7 +36,14 @@ EMAIL_VERIFICATION_STATES = {
     EMAIL_EXEMPT,
 }
 
-_TOKEN_SECRET = os.getenv("AUTH_TOKEN_SECRET", "sunod-auth-secret-change-me")
+def _token_secret() -> bytes:
+    # Lazy import: app.security imports this module at its top level, so importing
+    # security here at import time would be circular. By the time a verification
+    # token is hashed, security is loaded and both modules share the same resolved
+    # secret (env var, or the persisted random secret) - no weak fallback constant.
+    from app.security import get_token_secret
+
+    return get_token_secret().encode("utf-8")
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,7 +231,7 @@ def issue_verification_token() -> tuple[str, str]:
 
 def hash_verification_token(token: str) -> str:
     digest = hmac.new(
-        _TOKEN_SECRET.encode("utf-8"),
+        _token_secret(),
         token.encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
