@@ -268,6 +268,85 @@ class PredictionOut(BaseModel):
     bundle_key: str | None = None
 
 
+class RunStateQuestRecord(BaseModel):
+    """One quest's result inside the run-state checkpoint. Persisted so a resumed run can
+    rebuild the full playthrough's telemetry records: run summary, prediction, and the
+    progress counts must cover ALL sessions of the playthrough, not just the latest one."""
+    quest_id: str = Field(..., max_length=100)
+    quest_name: str = Field("", max_length=200)
+    primary_riasec: str = Field("", max_length=1)
+    question_code: str = Field("", max_length=3)
+    completed: bool = False
+    stars: int = Field(0, ge=0, le=3)
+    time_spent_seconds: float = Field(0.0, ge=0.0)
+    skill_use_r: int = Field(0, ge=0)
+    skill_use_i: int = Field(0, ge=0)
+    skill_use_a: int = Field(0, ge=0)
+    skill_use_s: int = Field(0, ge=0)
+    skill_use_e: int = Field(0, ge=0)
+    skill_use_c: int = Field(0, ge=0)
+
+
+class RunStateIn(BaseModel):
+    """Checkpoint pushed by the client after each quest completes - backs Continue/Reset.
+    Distinct from RunSummaryTelemetryIn (completed-run history for reporting/scoring)."""
+    session_id: str = Field(..., max_length=100)
+    completed_quest_ids: list[str] = Field(default_factory=list)
+    quest_records: list[RunStateQuestRecord] = Field(default_factory=list)
+    riasec_scores: dict[str, float] = Field(default_factory=dict)
+    # Skill NAMES (vc_SkillData.skillName) the player owned - used to re-equip on Continue.
+    # Names, not capability tags: tags aren't unique per skill, names are.
+    owned_skills: list[str] = Field(default_factory=list)
+    total_stars: int = Field(0, ge=0)
+    floor_scene: str = Field("", max_length=100)
+    tutorial_completed: bool = False
+    run_finished: bool = False
+
+    @field_validator("session_id", mode="before")
+    @classmethod
+    def validate_session_id(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("session_id cannot be empty.")
+        return normalized
+
+
+class RunStateOut(BaseModel):
+    has_state: bool
+    session_id: str | None = None
+    completed_quest_ids: list[str] = Field(default_factory=list)
+    quest_records: list[RunStateQuestRecord] = Field(default_factory=list)
+    riasec_scores: dict[str, float] = Field(default_factory=dict)
+    owned_skills: list[str] = Field(default_factory=list)
+    total_stars: int = 0
+    floor_scene: str | None = None
+    tutorial_completed: bool = False
+    run_finished: bool = False
+    updated_at: datetime | None = None
+
+
+class RunStateResetOut(BaseModel):
+    success: bool
+    message: str
+
+
+class PlayerProgressOut(BaseModel):
+    """The caller's own latest run - home-screen 'My Progress' panel. Always the CALLING
+    player's data (derived from the auth token), never another player's."""
+    has_data: bool
+    quests_completed: int = 0
+    quests_attempted: int = 0
+    total_stars: int = 0
+    predicted_career_result: str | None = None
+    predicted_career_family: str | None = None
+    predicted_cluster_label: str | None = None
+    predicted_holland_code: str | None = None
+    predicted_cluster: int = -1
+    prediction_source: str | None = None
+    riasec_scores: RiasecScoresOut | None = None
+    last_updated: datetime | None = None
+
+
 class SessionClusterTelemetryIn(BaseModel):
     player_id: str = Field(..., max_length=100)
     session_id: str = Field(..., max_length=100)

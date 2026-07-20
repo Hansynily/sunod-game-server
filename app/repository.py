@@ -20,6 +20,9 @@ class TelemetryRepository:
         self.ml_datasets = database["ml_datasets"]
         self.quest_model_bindings = database["quest_model_bindings"]
         self.counters = database["counters"]
+        # One CURRENT save-state per player (upsert, not history) - backs Continue/Reset.
+        # Distinct from session_runs, which is completed-run history for reporting.
+        self.player_run_state = database["player_run_state"]
 
     def ping(self) -> None:
         self.database.command("ping")
@@ -66,6 +69,11 @@ class TelemetryRepository:
         self.session_runs.create_index(
             [("created_at", DESCENDING)],
             name="session_runs_created_at_idx",
+        )
+        self.player_run_state.create_index(
+            [("player_id", ASCENDING)],
+            unique=True,
+            name="player_run_state_player_id_unique",
         )
         self.ml_datasets.create_index(
             [("id", ASCENDING)],
@@ -119,6 +127,9 @@ class TelemetryRepository:
     def list_users(self) -> list[models.User]:
         documents = self.users.find().sort("created_at", DESCENDING)
         return [self._build_user(document) for document in documents]
+
+    def count_admins(self) -> int:
+        return self.users.count_documents({"role": "admin"})
 
     def list_session_run_overview_by_player(self) -> dict[str, dict[str, Any]]:
         documents = self.session_runs.find(
@@ -273,6 +284,92 @@ class TelemetryRepository:
     ) -> dict[str, Any] | None:
         return self.session_runs.find_one(
             {"player_id": player_id, "session_id": session_id},
+            sort=[("created_at", DESCENDING)],
+        )
+
+    def find_latest_run_for_player(self, player_id: str) -> dict[str, Any] | None:
+        return self.session_runs.find_one(
+            {"player_id": player_id},
+            sort=[("created_at", DESCENDING)],
+        )
+
+    # ── Player run-state (Continue/Reset save-state) ──────────────────────
+
+    def get_run_state(self, player_id: str) -> dict[str, Any] | None:
+        return self.player_run_state.find_one({"player_id": player_id})
+
+    def upsert_run_state(
+        self,
+        *,
+        player_id: str,
+        session_id: str,
+        completed_quest_ids: list[str],
+        riasec_scores: dict[str, float],
+        owned_skills: list[str],
+        total_stars: int,
+        floor_scene: str,
+        tutorial_completed: bool,
+        run_finished: bool = False,
+        quest_records: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        document = {
+            "player_id": player_id,
+            "session_id": session_id,
+            "completed_quest_ids": list(completed_quest_ids or []),
+            "quest_records": list(quest_records or []),
+            "riasec_scores": dict(riasec_scores or {}),
+            "owned_skills": list(owned_skills or []),
+            "total_stars": int(total_stars or 0),
+            "floor_scene": floor_scene or "",
+            "tutorial_completed": bool(tutorial_completed),
+            "run_finished": bool(run_finished),
+            "updated_at": datetime.utcnow(),
+        }
+        return self.player_run_state.find_one_and_update(
+            {"player_id": player_id},
+            {"$set": document},
+            upsert=True,
+            return_document=ReturnDocument.AFTER,
+        )
+
+    def finish_run_state(self, player_id: str) -> None:
+        """Marks the caller's run finished. Atomic $set on just the flag, so it cannot be
+        lost to a racing checkpoint upsert and needs no round trip through the client.
+        Upserts a minimal finished doc if none exists, so 'End Run ends the run' holds
+        even when no checkpoint was ever pushed."""
+        self.player_run_state.update_one(
+            {"player_id": player_id},
+            {
+                "$set": {"run_finished": True, "updated_at": datetime.utcnow()},
+                "$setOnInsert": {
+                    "player_id": player_id,
+                    "session_id": "",
+                    "completed_quest_ids": [],
+                    "quest_records": [],
+                    "riasec_scores": {},
+                    "owned_skills": [],
+                    "total_stars": 0,
+                    "floor_scene": "",
+                    "tutorial_completed": False,
+                },
+            },
+            upsert=True,
+        )
+
+    def clear_run_state(self, player_id: str) -> None:
+        self.player_run_state.delete_one({"player_id": player_id})
+
+    def stamp_prediction_source(
+        self,
+        *,
+        player_id: str,
+        session_id: str,
+        prediction_source: str,
+    ) -> None:
+        # Same latest-run targeting as find_session_run_for_player.
+        self.session_runs.find_one_and_update(
+            {"player_id": player_id, "session_id": session_id},
+            {"$set": {"prediction_source": prediction_source}},
             sort=[("created_at", DESCENDING)],
         )
 

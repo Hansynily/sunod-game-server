@@ -34,7 +34,7 @@ CHALLENGE_DEFINITIONS = (
     ChallengeDefinition("L3_FallenSparrow", "S"),
     ChallengeDefinition("L3_BlockedPath", "C"),
     ChallengeDefinition("L3_SlipperyWay", "E"),
-    # New data-driven quest rooms — codes match what the game client sends.
+    # New data-driven quest rooms - codes match what the game client sends.
     ChallengeDefinition("r_pump", "R"),
     ChallengeDefinition("a_mural", "A"),
     ChallengeDefinition("i_map", "I"),
@@ -229,7 +229,7 @@ def _validate_round_catalog(payload: schemas.RunSummaryTelemetryIn) -> None:
         expected_tag = CHALLENGE_TAG_BY_ID.get(round_entry.challenge_id)
         if expected_tag is None:
             LOGGER.warning(
-                "Unknown challenge_id '%s' — not in catalog. "
+                "Unknown challenge_id '%s' - not in catalog. "
                 "Using client-provided primary_riasec '%s' for feature extraction.",
                 round_entry.challenge_id,
                 round_entry.primary_riasec,

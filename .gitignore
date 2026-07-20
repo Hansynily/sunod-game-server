@@ -19,3 +19,10 @@ test.bat
 /app/__pycache__
 /tests
 *.bat
+/app/__pycache__
+model_assets/runtime/riasec_cluster_model.pkl
+/model_assets
+/model_assets
+/model_assets
+model_assets/runtime/riasec_cluster_model.pkl
+*.pkl

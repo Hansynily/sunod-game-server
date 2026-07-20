@@ -7,6 +7,7 @@ from typing import Generator
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from pymongo.database import Database
+from pymongo.errors import PyMongoError
 
 from .repository import TelemetryRepository
 
@@ -65,8 +66,17 @@ def get_database() -> Database:
 
 def init_db() -> None:
     repository = TelemetryRepository(get_database())
-    repository.ensure_indexes()
-    repository.ping()
+    try:
+        # Ping first: a cheap connectivity probe so an unreachable MongoDB fails
+        # with one clear message instead of a traceback out of create_index.
+        repository.ping()
+        repository.ensure_indexes()
+    except PyMongoError as exc:
+        settings = get_mongo_settings()
+        raise SystemExit(
+            f"Cannot reach MongoDB at '{settings.uri}' (database '{settings.database}'): {exc}.\n"
+            "Is MongoDB running? Start it first, then relaunch the server."
+        ) from exc
 
 
 def close_db() -> None:
