@@ -20,9 +20,8 @@ test.bat
 /tests
 *.bat
 /app/__pycache__
-model_assets/runtime/riasec_cluster_model.pkl
-/model_assets
-/model_assets
-/model_assets
-model_assets/runtime/riasec_cluster_model.pkl
+# Models: only the live runtime set is tracked (deploys need it). Bundles stay local.
+/model_assets/bundles
 *.pkl
+!/model_assets/runtime/*.pkl
+.auth_token_secret

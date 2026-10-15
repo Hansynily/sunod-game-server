@@ -6,6 +6,7 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
+from collections.abc import Mapping
 from typing import Any, Sequence
 
 import joblib
@@ -61,6 +62,23 @@ class SavedBundleStatus:
     cluster_model_path: str | None = None
     career_model_paths: dict[int, str] | None = None
     reason: str | None = None
+
+
+class LazyCareerModels(Mapping):
+    """cluster_id -> career model, loaded from disk on each access instead of held in
+    memory. Keeps RAM low on small hosts (only the cluster model stays resident)."""
+
+    def __init__(self, model_paths: dict[int, str]):
+        self._paths = {int(cluster_id): str(path) for cluster_id, path in model_paths.items()}
+
+    def __getitem__(self, cluster_id: int) -> Any:
+        return joblib.load(self._paths[int(cluster_id)])
+
+    def __iter__(self):
+        return iter(self._paths)
+
+    def __len__(self) -> int:
+        return len(self._paths)
 
 
 _cluster_status_lock = Lock()
@@ -333,7 +351,6 @@ def _load_career_models(
         else EXPECTED_CLUSTER_IDS
     )
 
-    models: dict[int, Any] = {}
     model_paths: dict[int, str] = {}
     missing_paths: list[str] = []
 
@@ -373,7 +390,8 @@ def _load_career_models(
                 model_paths=model_paths,
             )
 
-        models[int(cluster_id)] = model
+        # Validated, then dropped: predictions reload it on demand (LazyCareerModels).
+        del model
         model_paths[int(cluster_id)] = str(model_path)
 
     if missing_paths:
@@ -385,7 +403,7 @@ def _load_career_models(
 
     return CareerModelStatus(
         available=True,
-        models=models,
+        models=LazyCareerModels(model_paths),
         model_paths=model_paths,
     )
 
@@ -492,22 +510,8 @@ def load_saved_bundle_models(bundle_key_or_path: str | Path) -> SavedBundleStatu
             reason=f"Saved bundle cluster model could not be loaded: {exc}",
         )
 
-    career_models: dict[int, Any] = {}
-    for cluster_id, model_path in status.career_model_paths.items():
-        try:
-            career_models[int(cluster_id)] = joblib.load(model_path)
-        except Exception as exc:
-            return SavedBundleStatus(
-                available=False,
-                bundle_key=status.bundle_key,
-                bundle_path=status.bundle_path,
-                model_version=status.model_version,
-                cluster_model=cluster_model,
-                career_models=career_models,
-                cluster_model_path=status.cluster_model_path,
-                career_model_paths=status.career_model_paths,
-                reason=f"Saved bundle career model for cluster {cluster_id} could not be loaded: {exc}",
-            )
+    # Loaded on demand, like the runtime career models (file presence checked above).
+    career_models = LazyCareerModels(status.career_model_paths)
 
     return SavedBundleStatus(
         available=True,
