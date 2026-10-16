@@ -91,6 +91,8 @@ def credentials_email(name: str, username: str, password: str) -> tuple[str, str
 
 def main() -> None:
     commit = "--commit" in sys.argv
+    # --no-email: skip sending; every password goes to import_results_PRIVATE.csv instead.
+    no_email = "--no-email" in sys.argv
     rows = load_rows()
 
     uri = os.environ["MONGODB_URI"]
@@ -116,7 +118,7 @@ def main() -> None:
     if not commit:
         print("Dry run only. Re-run with --commit to create users and send emails.")
         return
-    if sender.startswith("NONE"):
+    if sender.startswith("NONE") and not no_email:
         sys.exit("No email sender configured - refusing to create accounts nobody can log in to.")
 
     results = []
@@ -152,6 +154,10 @@ def main() -> None:
             **({"created_at": created} if created else {}),
         }})
 
+        if no_email:
+            results.append((username, email, "created", "not_sent", password))
+            print(f"  ok   {username}")
+            continue
         html, text = credentials_email(row["name"].strip(), username, password)
         try:
             mailer.send_email(to_email=email, subject="Your SUNOD account", html_body=html, text_body=text)
@@ -163,7 +169,7 @@ def main() -> None:
 
     with RESULTS_PATH.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["username", "email", "account", "email_status", "password_if_email_failed"])
+        writer.writerow(["username", "email", "account", "email_status", "password_if_not_emailed"])
         writer.writerows(results)
         writer.writerows((u, "", "already_existed", "", "") for u in skipped)
 
