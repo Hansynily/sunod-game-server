@@ -28,3 +28,4 @@ test.bat
 
 .env.import
 import_results_PRIVATE.csv
+stress_results/
