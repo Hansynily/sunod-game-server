@@ -93,6 +93,13 @@ def credentials_email(name: str, username: str, password: str) -> tuple[str, str
     return html, text
 
 
+def _csv_datetime(row: dict, key: str) -> datetime | None:
+    try:
+        return datetime.strptime((row.get(key) or "").strip(), "%Y-%m-%d %H:%M")
+    except ValueError:
+        return None
+
+
 def _num(value, cast=float):
     try:
         return cast(str(value).strip()) if str(value).strip() != "" else None
@@ -132,7 +139,7 @@ def build_imported_run(row: dict, user, created: datetime | None) -> dict | None
         "holland_code": holland,
         "career_family": (row.get("cluster_label") or "").strip() or "Pending Cluster Result",
         "career_result": (row.get("career_result") or "").strip() or "Pending Cluster Result",
-        "source": "imported_study_server",
+        "source": "model_rf",
         "model_version": "imported",
         "created_at": created or datetime.utcnow(),
         "imported_from": CSV_PATH.name,
@@ -145,7 +152,7 @@ def build_imported_run(row: dict, user, created: datetime | None) -> dict | None
             "cluster_label": (row.get("cluster_label") or "").strip() or None,
             "cluster_holland_code": (row.get("cluster_holland_code") or "").strip() or None,
             "cluster_example_careers": [],
-            "cluster_source": "imported_study_server",
+            "cluster_source": "model_rf",
             "cluster_model_version": "imported",
         })
     return run
@@ -248,6 +255,7 @@ def main() -> None:
             "verified_at": now,
             "imported_from": CSV_PATH.name,
             **({"created_at": created} if created else {}),
+            **({"last_login": _csv_datetime(row, "last_login")} if _csv_datetime(row, "last_login") else {}),
         }})
 
         run_status = import_run(repo, row, repo.find_user_by_id(user.id) or user, created)
