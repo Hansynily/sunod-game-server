@@ -56,6 +56,20 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 templates = Jinja2Templates(directory=str(ROOT / "templates"))
 
 
+def _letter_means_from_features(features: list[float], neutral: float) -> dict[str, float]:
+    """Per-letter average of the player's REAL answers in the 48-item vector (R1..R8, I1..I8,
+    ... C1..C8 order), skipping the neutral padding of unplayed items. Letters with no real
+    answer are left out. Empty when the vector isn't the 48-item layout."""
+    if len(features) != 48:
+        return {}
+    means: dict[str, float] = {}
+    for index, letter in enumerate("RIASEC"):
+        real = [float(v) for v in features[index * 8:(index + 1) * 8] if abs(float(v) - neutral) > 1e-6]
+        if real:
+            means[letter] = sum(real) / len(real)
+    return means
+
+
 def _neutral_cluster_result(cluster_id: int, career_cluster_id: int | None) -> str:
     return "Specific career not yet mapped"
 
@@ -1727,6 +1741,22 @@ def predict_cluster(
         and len({float(value) for value in payload.features}) > 1
     )
 
+    # Coverage gate. Unplayed quests are neutral-filled to 3.0 by the client. A vector with
+    # only a handful of real (non-3.0) slots is mostly padding, and the RF reacts to that
+    # near-flat input almost arbitrarily (e.g. a Social player getting "Dietician"). Below
+    # the threshold we defer to the skill-usage rubric fallback, which reflects HOW the
+    # player actually played. At/above it the questionnaire vector is substantial enough to
+    # trust the RF. (Neutral-fill is exactly 3.0, so a completed quest that genuinely scores
+    # 3 is undercounted here - deliberately conservative, it only ever favors the fallback.)
+    NEUTRAL_FILL = 3.0
+    MIN_REAL_SLOTS_FOR_RF = 24  # half of the 48-item questionnaire
+    real_slot_count = (
+        sum(1 for value in payload.features if abs(float(value) - NEUTRAL_FILL) > 1e-6)
+        if len(payload.features) == 48
+        else 0
+    )
+    has_enough_coverage = real_slot_count >= MIN_REAL_SLOTS_FOR_RF
+
     session_run = db.find_session_run_for_player(
         player_id=payload.player_id,
         session_id=payload.session_id,
@@ -1740,8 +1770,14 @@ def predict_cluster(
             detail="features are missing or failed validation (48 values within 1-5, not all identical) and no stored rubric scores are available for fallback.",
         )
 
-    use_random_forest = features_valid
-    prediction_source = "model_rf" if use_random_forest else "holland_fallback"
+    # Use the RF only when the vector both validates AND has enough real coverage. If it is
+    # too sparse, prefer the rubric fallback (when we have one); if no rubric exists either,
+    # fall back to the RF rather than fail outright.
+    use_random_forest = features_valid and (has_enough_coverage or not has_rubric_fallback)
+    if use_random_forest and features_valid and not has_enough_coverage:
+        prediction_source = "model_rf_low_coverage"
+    else:
+        prediction_source = "model_rf" if use_random_forest else "holland_fallback"
 
     try:
         if use_random_forest:
@@ -1757,6 +1793,34 @@ def predict_cluster(
                 predicted_cluster = cluster_runtime.holland_match_cluster(stored_riasec)
                 career_features = cluster_runtime.build_feature_vector_from_scores(stored_riasec)
                 prediction_source = "model_rf_outlier_redirect"
+            else:
+                # Profile sanity check. The RF was trained on questionnaire answers, where people
+                # mark dislikes 1-2; players finish most quests, so their vectors run high across
+                # the board and the RF drifts to the same clusters (mostly RIC Engineering) for
+                # very different players. Keep the RF result when its cluster's Holland code
+                # contains the player's own strongest letter; otherwise redirect to the named
+                # cluster that best matches the player's per-letter averages (computed from the
+                # same 48 answers, ignoring the neutral 3.0 padding of unplayed items).
+                letter_means = _letter_means_from_features(payload.features, NEUTRAL_FILL)
+                if letter_means:
+                    top_letter = max(letter_means, key=letter_means.get)
+                    model_code = cluster_runtime.CLUSTER_HOLLAND_CODES.get(predicted_cluster, "")
+                    if top_letter not in model_code:
+                        # Only clusters that contain the player's strongest letter are candidates
+                        # (plain Holland averaging lets a pure-R player lose RIC to IA/AS when
+                        # their I and C answers are low); best average of those wins.
+                        candidates = {
+                            cid: code for cid, code in cluster_runtime.CLUSTER_HOLLAND_CODES.items()
+                            if top_letter in code
+                        }
+                        predicted_cluster = max(
+                            candidates,
+                            key=lambda cid: (
+                                sum(letter_means.get(l, 1.0) for l in candidates[cid]) / len(candidates[cid]),
+                                candidates[cid].startswith(top_letter),
+                            ),
+                        )
+                        prediction_source = "model_rf_profile_check"
         else:
             predicted_cluster = cluster_runtime.holland_match_cluster(stored_riasec)
             career_features = cluster_runtime.build_feature_vector_from_scores(stored_riasec)
