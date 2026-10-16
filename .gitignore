@@ -25,3 +25,6 @@ test.bat
 *.pkl
 !/model_assets/runtime/*.pkl
 .auth_token_secret
+
+.env.import
+import_results_PRIVATE.csv
