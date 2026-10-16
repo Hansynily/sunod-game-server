@@ -21,7 +21,8 @@ import os
 import secrets
 import sys
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -94,10 +95,13 @@ def credentials_email(name: str, username: str, password: str) -> tuple[str, str
 
 
 def _csv_datetime(row: dict, key: str) -> datetime | None:
+    """CSV times are local (APP_TIMEZONE, Asia/Manila); Mongo stores naive UTC."""
     try:
-        return datetime.strptime((row.get(key) or "").strip(), "%Y-%m-%d %H:%M")
+        local = datetime.strptime((row.get(key) or "").strip(), "%Y-%m-%d %H:%M")
     except ValueError:
         return None
+    zone = ZoneInfo(os.getenv("APP_TIMEZONE") or "Asia/Manila")
+    return local.replace(tzinfo=zone).astimezone(timezone.utc).replace(tzinfo=None)
 
 
 def _num(value, cast=float):
@@ -202,11 +206,8 @@ def main() -> None:
             if user is None:
                 statuses.append("no_user")
                 continue
-            created = None
-            try:
-                created = datetime.strptime(row.get("created", "").strip(), "%Y-%m-%d %H:%M")
-            except ValueError:
-                pass
+            created = _csv_datetime(row, "created")
+
             if commit:
                 statuses.append(import_run(repo, row, user, created))
             else:
@@ -243,11 +244,8 @@ def main() -> None:
             continue
 
         now = datetime.utcnow()
-        created = None
-        try:
-            created = datetime.strptime(row.get("created", "").strip(), "%Y-%m-%d %H:%M")
-        except ValueError:
-            pass
+        created = _csv_datetime(row, "created")
+
         repo.users.update_one({"id": user.id}, {"$set": {
             "approval_state": account_lifecycle.APPROVAL_APPROVED,
             "approved_at": now,
