@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from email.message import EmailMessage
+from email.utils import parseaddr
+import json
+import urllib.error
+import urllib.request
 from functools import lru_cache
 import logging
 import os
@@ -32,6 +36,7 @@ class MailerSettings:
     verification_ttl_hours: int
     use_starttls: bool
     use_ssl: bool
+    brevo_api_key: str | None = None
 
     @property
     def enabled(self) -> bool:
@@ -70,6 +75,7 @@ def get_mailer_settings() -> MailerSettings:
         verification_ttl_hours=max(1, verification_ttl_hours),
         use_starttls=_env_flag("SMTP_STARTTLS", default=True),
         use_ssl=_env_flag("SMTP_SSL", default=False),
+        brevo_api_key=(os.getenv("BREVO_API_KEY") or "").strip() or None,
     )
 
 
@@ -103,6 +109,15 @@ def send_email(
     verification_link: str | None = None,
 ) -> DeliveryResult:
     settings = get_mailer_settings()
+    # Brevo's HTTPS API first when a key is set: hosts like Render's free tier block
+    # outbound SMTP ports, but not HTTPS. Without a key, SMTP below is used as before.
+    if settings.brevo_api_key and settings.from_email:
+        _send_via_brevo(settings, to_email=to_email, subject=subject, html_body=html_body, text_body=text_body)
+        return DeliveryResult(
+            mode="brevo",
+            message="Verification email sent successfully.",
+        )
+
     if not settings.enabled:
         LOGGER.info(
             "SMTP is not configured. Verification email was not sent to %s. Subject=%s",
@@ -139,6 +154,39 @@ def send_email(
         mode="smtp",
         message="Verification email sent successfully.",
     )
+
+
+BREVO_SEND_URL = "https://api.brevo.com/v3/smtp/email"
+
+
+def _send_via_brevo(settings: MailerSettings, *, to_email: str, subject: str, html_body: str, text_body: str) -> None:
+    sender_name, sender_email = parseaddr(settings.from_email or "")
+    payload = {
+        "sender": {"name": sender_name or "SUNOD", "email": sender_email or settings.from_email},
+        "to": [{"email": to_email}],
+        "subject": subject,
+        "htmlContent": html_body,
+        "textContent": text_body,
+    }
+    request = urllib.request.Request(
+        BREVO_SEND_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "api-key": settings.brevo_api_key or "",
+            "content-type": "application/json",
+            "accept": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            if response.status >= 300:
+                raise RuntimeError(f"Brevo send failed: HTTP {response.status}")
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")[:300]
+        raise RuntimeError(f"Brevo send failed: HTTP {exc.code} {detail}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Brevo send failed: {exc.reason}") from exc
 
 
 def _login_and_send(client: smtplib.SMTP, settings: MailerSettings, message: EmailMessage) -> None:
