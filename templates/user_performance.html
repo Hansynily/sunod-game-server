@@ -679,6 +679,38 @@
         </article>
     </section>
 
+    <div class="section-divider">Play time</div>
+
+    {% set pt = summary.play_time %}
+    <section class="metrics">
+        <article class="metric">
+            <div class="metric-label">Total play time</div>
+            <div class="metric-value">{{ (pt.total_play_seconds // 3600)|int }}h {{ ((pt.total_play_seconds % 3600) // 60)|int }}m</div>
+            <div class="metric-sub">Active time, all launches</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Play sessions</div>
+            <div class="metric-value">{{ pt.session_count }}</div>
+            <div class="metric-sub">App launches</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Average session</div>
+            <div class="metric-value">{{ (pt.avg_session_seconds // 60)|int }}m</div>
+            <div class="metric-sub">Longest {{ (pt.longest_session_seconds // 60)|int }}m</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Last played</div>
+            <div class="metric-value" style="font-size:1.1rem">{{ pt.last_played_at.strftime('%Y-%m-%d %H:%M') if pt.last_played_at else '-' }}</div>
+            <div class="metric-sub">First {{ pt.first_played_at.strftime('%Y-%m-%d') if pt.first_played_at else '-' }} (UTC)</div>
+        </article>
+    </section>
+    {% if pt.scene_seconds %}
+    <div class="metric-sub" style="margin:-0.4rem 0 1rem">
+        Time per scene:
+        {% for scene, secs in pt.scene_seconds.items() %}{{ scene }} {{ (secs // 60)|int }}m{{ ", " if not loop.last }}{% endfor %}
+    </div>
+    {% endif %}
+
     <div class="section-divider">Performance</div>
 
     <section class="metrics">

@@ -325,6 +325,42 @@ class RunStateOut(BaseModel):
     updated_at: datetime | None = None
 
 
+class PlaySessionIn(BaseModel):
+    """Heartbeat for one app launch. Durations are cumulative for that launch."""
+    app_session_id: str = Field(..., min_length=1, max_length=100)
+    # Focused, unpaused seconds. Backgrounded / unfocused time is excluded.
+    active_seconds: float = Field(0.0, ge=0.0, le=7 * 24 * 3600)
+    # Real time since launch, including backgrounded time.
+    wall_seconds: float = Field(0.0, ge=0.0, le=30 * 24 * 3600)
+    pause_count: int = Field(0, ge=0)
+    platform: str = Field("", max_length=50)
+    app_version: str = Field("", max_length=50)
+    # Active seconds per scene name, e.g. {"MainMenu": 40.2, "Town_Elementary": 512.0}.
+    scene_seconds: dict[str, float] = Field(default_factory=dict)
+    ended: bool = False
+
+    @field_validator("scene_seconds")
+    @classmethod
+    def validate_scene_seconds(cls, value: dict[str, float]) -> dict[str, float]:
+        if len(value) > 50:
+            raise ValueError("too many scenes.")
+        return {str(k)[:100]: max(0.0, float(v)) for k, v in value.items()}
+
+
+class PlayTimeSummaryOut(BaseModel):
+    total_play_seconds: float = 0.0
+    session_count: int = 0
+    avg_session_seconds: float = 0.0
+    longest_session_seconds: float = 0.0
+    first_played_at: datetime | None = None
+    last_played_at: datetime | None = None
+    scene_seconds: dict[str, float] = Field(default_factory=dict)
+
+
+class PrivacyConsentIn(BaseModel):
+    version: str = Field(..., min_length=1, max_length=20)
+
+
 class RunStateResetOut(BaseModel):
     success: bool
     message: str
@@ -552,6 +588,7 @@ class UserPerformance(BaseModel):
     latest_model_version: str | None = None
     latest_riasec: RiasecScoresOut
     runs: list[AdminSessionRun]
+    play_time: PlayTimeSummaryOut = Field(default_factory=PlayTimeSummaryOut)
     latest_predicted_cluster: int | None = None
     latest_career_cluster: int | None = None
     latest_career_result: str | None = None

@@ -588,6 +588,7 @@ def _build_user_performance_payload(
     user,
     session_run_documents: list[dict[str, Any]],
     quest_attempt_rows: list[dict[str, Any]] | None = None,
+    play_time: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     runs = [_summarize_session_run(document) for document in session_run_documents]
     quest_attempt_rows = list(quest_attempt_rows or [])
@@ -647,7 +648,19 @@ def _build_user_performance_payload(
         "latest_cluster_example_careers": latest_run["cluster_example_careers"] if latest_run else [],
         "quest_attempts": quest_attempt_rows,
         "runs": runs,
+        "play_time": play_time or schemas.PlayTimeSummaryOut().model_dump(),
     }
+
+
+def _play_time_summary(db, player_id: str | None) -> dict[str, Any]:
+    getter = getattr(db, "get_play_time_summary", None)
+    if not player_id or getter is None:
+        return schemas.PlayTimeSummaryOut().model_dump()
+    try:
+        return getter(player_id)
+    except Exception:
+        LOGGER.exception("Play-time summary failed for player %s.", player_id)
+        return schemas.PlayTimeSummaryOut().model_dump()
 
 
 def _format_admin_quest_attempt_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1446,6 +1459,51 @@ def finish_my_run_state(
     return schemas.RunStateResetOut(success=True, message="Run finished.")
 
 
+@router.put(
+    "/users/me/play-session",
+    response_model=schemas.PlayTimeSummaryOut,
+)
+def put_my_play_session(
+    payload: schemas.PlaySessionIn,
+    current_user = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    """Play-time heartbeat for one app launch (sent every minute, on pause and on quit).
+    Returns the caller's play-time totals across all launches."""
+    db.upsert_play_session(
+        player_id=current_user.player_id,
+        app_session_id=payload.app_session_id,
+        active_seconds=payload.active_seconds,
+        wall_seconds=payload.wall_seconds,
+        pause_count=payload.pause_count,
+        platform=payload.platform,
+        app_version=payload.app_version,
+        scene_seconds=payload.scene_seconds,
+        ended=payload.ended,
+    )
+    return schemas.PlayTimeSummaryOut(**db.get_play_time_summary(current_user.player_id))
+
+
+@router.post(
+    "/users/me/privacy-consent",
+    response_model=schemas.RunStateResetOut,
+)
+def post_my_privacy_consent(
+    payload: schemas.PrivacyConsentIn,
+    current_user = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    """Records that the caller agreed to the in-game privacy notice (version + time)."""
+    db.record_privacy_consent(current_user.player_id, payload.version)
+    audit_log(
+        "PRIVACY_CONSENT",
+        player_id=current_user.player_id,
+        username=current_user.username,
+        version=payload.version,
+    )
+    return schemas.RunStateResetOut(success=True, message="Consent recorded.")
+
+
 @router.post(
     "/users/me/run-state/reset",
     response_model=schemas.RunStateResetOut,
@@ -2171,6 +2229,7 @@ def admin_get_user_performance(
         user=user,
         session_run_documents=db.list_session_runs_for_player(user.player_id),
         quest_attempt_rows=db.list_admin_quest_attempt_rows(user_id=user.id),
+        play_time=_play_time_summary(db, user.player_id),
     )
     return schemas.UserPerformance(**payload)
 
@@ -2900,6 +2959,7 @@ def admin_user_performance_page(
         user=user,
         session_run_documents=db.list_session_runs_for_player(user.player_id),
         quest_attempt_rows=db.list_admin_quest_attempt_rows(user_id=user.id),
+        play_time=_play_time_summary(db, user.player_id),
     )
 
     latest_source = performance["latest_source"] or "No runs yet"
@@ -2925,6 +2985,7 @@ def admin_user_performance_page(
         "latest_cluster_model_version": performance["latest_cluster_model_version"] or "n/a",
         "latest_cluster_example_careers": performance["latest_cluster_example_careers"] or [],
         "latest_riasec": performance["latest_riasec"],
+        "play_time": performance["play_time"],
         "approval_state": performance["approval_state"],
         "email_verification_state": performance["email_verification_state"],
         "approved_at": performance["approved_at"],

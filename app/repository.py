@@ -23,6 +23,9 @@ class TelemetryRepository:
         # One CURRENT save-state per player (upsert, not history) - backs Continue/Reset.
         # Distinct from session_runs, which is completed-run history for reporting.
         self.player_run_state = database["player_run_state"]
+        # One doc per app launch (player_id + app_session_id), upserted by heartbeats.
+        # Play time lives here, independent of runs, so menu/tutorial time counts too.
+        self.play_sessions = database["play_sessions"]
 
     def ping(self) -> None:
         self.database.command("ping")
@@ -74,6 +77,11 @@ class TelemetryRepository:
             [("player_id", ASCENDING)],
             unique=True,
             name="player_run_state_player_id_unique",
+        )
+        self.play_sessions.create_index(
+            [("player_id", ASCENDING), ("app_session_id", ASCENDING)],
+            unique=True,
+            name="play_sessions_player_session_unique",
         )
         self.ml_datasets.create_index(
             [("id", ASCENDING)],
@@ -358,6 +366,83 @@ class TelemetryRepository:
 
     def clear_run_state(self, player_id: str) -> None:
         self.player_run_state.delete_one({"player_id": player_id})
+
+    def upsert_play_session(
+        self,
+        *,
+        player_id: str,
+        app_session_id: str,
+        active_seconds: float,
+        wall_seconds: float,
+        pause_count: int,
+        platform: str,
+        app_version: str,
+        scene_seconds: dict[str, float],
+        ended: bool,
+    ) -> dict[str, Any]:
+        """Heartbeat upsert. Durations are cumulative for the launch, so a lost or repeated
+        heartbeat is harmless; $max keeps an out-of-order (older) beat from shrinking them."""
+        now = datetime.utcnow()
+        update: dict[str, Any] = {
+            "$max": {
+                "active_seconds": float(active_seconds),
+                "wall_seconds": float(wall_seconds),
+                "pause_count": int(pause_count),
+            },
+            "$set": {
+                "platform": platform,
+                "app_version": app_version,
+                "scene_seconds": {str(k): float(v) for k, v in (scene_seconds or {}).items()},
+                "last_seen_at": now,
+            },
+            "$setOnInsert": {
+                "player_id": player_id,
+                "app_session_id": app_session_id,
+                "started_at": now,
+            },
+        }
+        if ended:
+            update["$set"]["ended"] = True
+            update["$set"]["ended_at"] = now
+        return self.play_sessions.find_one_and_update(
+            {"player_id": player_id, "app_session_id": app_session_id},
+            update,
+            upsert=True,
+            return_document=ReturnDocument.AFTER,
+        )
+
+    def record_privacy_consent(self, player_id: str, version: str) -> None:
+        """Stamps which privacy notice version the player agreed to, and when."""
+        self.users.update_one(
+            {"player_id": player_id},
+            {"$set": {"privacy_consent_version": version, "privacy_consented_at": datetime.utcnow()}},
+        )
+
+    def get_play_time_summary(self, player_id: str) -> dict[str, Any]:
+        """Totals across every launch: active seconds, launch count, average + longest
+        launch, first/last seen, and active seconds per scene."""
+        sessions = list(
+            self.play_sessions.find({"player_id": player_id}).sort("started_at", ASCENDING)
+        )
+        total = sum(float(s.get("active_seconds") or 0.0) for s in sessions)
+        scene_totals: dict[str, float] = {}
+        for session in sessions:
+            for scene, seconds in (session.get("scene_seconds") or {}).items():
+                scene_totals[scene] = scene_totals.get(scene, 0.0) + float(seconds or 0.0)
+        count = len(sessions)
+        return {
+            "total_play_seconds": total,
+            "session_count": count,
+            "avg_session_seconds": (total / count) if count else 0.0,
+            "longest_session_seconds": max(
+                (float(s.get("active_seconds") or 0.0) for s in sessions), default=0.0
+            ),
+            "first_played_at": sessions[0].get("started_at") if sessions else None,
+            "last_played_at": max(
+                (s.get("last_seen_at") for s in sessions if s.get("last_seen_at")), default=None
+            ),
+            "scene_seconds": dict(sorted(scene_totals.items(), key=lambda kv: -kv[1])),
+        }
 
     def stamp_prediction_source(
         self,
@@ -1117,6 +1202,8 @@ class TelemetryRepository:
             delete_filter = {"$or": [{"user_id": user_id}, {"player_id": player_id}]}
 
         self.session_runs.delete_many(delete_filter)
+        if player_id:
+            self.play_sessions.delete_many({"player_id": player_id})
         return result.deleted_count == 1
 
     def add_session_run(
