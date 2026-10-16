@@ -1427,6 +1427,48 @@ def get_my_progress(
 
 
 @router.get(
+    "/users/me/runs",
+    response_model=schemas.PlayerRunHistoryOut,
+)
+def get_my_run_history(
+    current_user = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    """'My Progress' history - every finished playthrough of the CALLING player, newest
+    first (one session_run per submitted run). Player-scoped by the auth token, like
+    /users/me/progress. Reset Run does not touch this list; it is the player's record."""
+    items: list[schemas.PlayerRunHistoryItem] = []
+    for doc in db.list_session_runs_for_player(current_user.player_id):
+        rounds = doc.get("rounds") or []
+        scores = {}
+        try:
+            scores = _normalize_admin_riasec_scores(doc.get("riasec_scores") or {}) or {}
+        except Exception:
+            scores = {}
+        created_at = doc.get("created_at")
+        items.append(
+            schemas.PlayerRunHistoryItem(
+                session_id=str(doc.get("session_id") or ""),
+                finished_at=created_at.isoformat() + "Z" if isinstance(created_at, datetime) else str(created_at or ""),
+                career_result=str(doc.get("career_result") or ""),
+                career_family=str(doc.get("career_family") or doc.get("cluster_label") or ""),
+                holland_code=str(doc.get("cluster_holland_code") or doc.get("holland_code") or ""),
+                quests_attempted=len(rounds),
+                quests_completed=sum(1 for r in rounds if r.get("solved") or r.get("completed")),
+                total_stars=sum(int(r.get("stars_earned", 0) or 0) for r in rounds),
+                play_seconds=float(doc.get("total_time_spent_seconds", 0) or 0),
+                riasec_r=int(scores.get("r", 0) or 0),
+                riasec_i=int(scores.get("i", 0) or 0),
+                riasec_a=int(scores.get("a", 0) or 0),
+                riasec_s=int(scores.get("s", 0) or 0),
+                riasec_e=int(scores.get("e", 0) or 0),
+                riasec_c=int(scores.get("c", 0) or 0),
+            )
+        )
+    return schemas.PlayerRunHistoryOut(runs=items)
+
+
+@router.get(
     "/users/me/run-state",
     response_model=schemas.RunStateOut,
 )

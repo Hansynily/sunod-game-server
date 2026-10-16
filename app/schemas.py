@@ -366,6 +366,30 @@ class RunStateResetOut(BaseModel):
     message: str
 
 
+class PlayerRunHistoryItem(BaseModel):
+    """One finished playthrough on the 'My Progress' page. Strings default to "" and numbers
+    to 0 (never null) so Unity's JsonUtility can read every field."""
+    session_id: str = ""
+    finished_at: str = ""
+    career_result: str = ""
+    career_family: str = ""
+    holland_code: str = ""
+    quests_attempted: int = 0
+    quests_completed: int = 0
+    total_stars: int = 0
+    play_seconds: float = 0.0
+    riasec_r: int = 0
+    riasec_i: int = 0
+    riasec_a: int = 0
+    riasec_s: int = 0
+    riasec_e: int = 0
+    riasec_c: int = 0
+
+
+class PlayerRunHistoryOut(BaseModel):
+    runs: list[PlayerRunHistoryItem] = Field(default_factory=list)
+
+
 class PlayerProgressOut(BaseModel):
     """The caller's own latest run - home-screen 'My Progress' panel. Always the CALLING
     player's data (derived from the auth token), never another player's."""
