@@ -72,10 +72,12 @@ def build_new_user_lifecycle(*, role: str, email: str | None) -> dict[str, Any]:
             "email": normalized_email,
         }
 
+    # No admin approval step: new players are approved on signup and only need to
+    # verify their email. (Admins can still reject an account afterwards.)
     return {
-        "approval_state": APPROVAL_PENDING,
+        "approval_state": APPROVAL_APPROVED,
         "email_verification_state": EMAIL_QUEUED if normalized_email else EMAIL_MISSING,
-        "approved_at": None,
+        "approved_at": now,
         "approved_by_user_id": None,
         "verification_sent_at": None,
         "verification_expires_at": None,
@@ -161,16 +163,9 @@ def describe_login_state(*, role: str, approval_state: str, email_verification_s
             message=message,
         )
 
-    if approval_state == APPROVAL_PENDING:
-        return LifecycleSnapshot(
-            approval_state=approval_state,
-            email_verification_state=email_verification_state,
-            can_login=False,
-            next_step="await_admin_approval",
-            message="Account created. Wait for admin approval before logging in.",
-        )
-
-    if approval_state not in {APPROVAL_APPROVED, APPROVAL_GRANDFATHERED}:
+    # Admin approval was removed: accounts created while it existed may still say
+    # "pending", and are treated as approved (email verification still applies).
+    if approval_state not in {APPROVAL_APPROVED, APPROVAL_GRANDFATHERED, APPROVAL_PENDING}:
         return LifecycleSnapshot(
             approval_state=approval_state,
             email_verification_state=email_verification_state,

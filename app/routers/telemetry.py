@@ -10,8 +10,8 @@ from urllib.parse import urlencode
 import uuid
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import EmailStr, TypeAdapter, ValidationError
 
@@ -911,6 +911,32 @@ def _send_verification_email(db: TelemetryRepository, user) -> tuple[Any, mailer
     return updated_user, delivery_result
 
 
+def _try_send_verification_email(db: TelemetryRepository, user, *, via: str):
+    """Best-effort verification send for player-facing flows. Never raises: if SMTP is
+    down the account stays unverified and the next login attempt retries."""
+    if not _should_send_verification_on_approval(user):
+        return user
+    try:
+        user, _ = _send_verification_email(db, user)
+        audit_log("USER_VERIFICATION_SENT", target_user_id=user.id, target_username=user.username, via=via)
+    except Exception as exc:
+        LOGGER.warning("Verification email send failed (%s) for user_id=%s: %s", via, user.id, exc)
+        audit_log(
+            "USER_VERIFICATION_SEND_FAILED",
+            target_user_id=user.id,
+            target_username=user.username,
+            reason=str(exc),
+            via=via,
+        )
+        # The token was stored as "sent" before SMTP failed; put it back to queued so
+        # the next login attempt tries again instead of waiting on a mail that never left.
+        requeue = getattr(db, "mark_user_email_queued", None)
+        if requeue is not None:
+            requeue(user.id)
+        user = db.find_user_by_id(user.id) or user
+    return user
+
+
 def _validate_email_form_input(email: str) -> str:
     return str(TypeAdapter(EmailStr).validate_python(email))
 
@@ -1050,6 +1076,7 @@ def _require_user_or_404(db: TelemetryRepository, user_id: int):
 @router.post("/users", response_model=schemas.AuthResponse, status_code=status.HTTP_201_CREATED)
 def create_user(
     user_in: schemas.UserCreate,
+    background_tasks: BackgroundTasks,
     current_user = Depends(get_optional_user),
     db: TelemetryRepository = Depends(get_db),
 ):
@@ -1107,7 +1134,17 @@ def create_user(
             email_verification_state=user.email_verification_state,
             **_principal_fields(current_user, prefix="actor"),
         )
-        return _build_auth_response(user)
+        # No admin approval step anymore: the verification link goes out on signup.
+        # Sent in the background: a slow or blocked SMTP server must not stall signup.
+        background_tasks.add_task(_try_send_verification_email, db, user, via="register")
+        response = _build_auth_response(user)
+        if user.email and not response.can_login:
+            response.next_step = "verify_email"
+            response.message = (
+                f"Account created. We are sending a verification link to {user.email}. "
+                "Open it, then log in."
+            )
+        return response
     except DuplicateUserError as exc:
         upgraded_user = db.upgrade_legacy_user_password(
             username=username,
@@ -1154,6 +1191,7 @@ def create_user(
 @router.post("/auth/login", response_model=schemas.AuthResponse)
 def login_user(
     user_in: schemas.UserLogin,
+    background_tasks: BackgroundTasks,
     db: TelemetryRepository = Depends(get_db),
 ):
     username = user_in.username.strip()
@@ -1187,6 +1225,20 @@ def login_user(
         if access_state.email_verification_state == account_lifecycle.EMAIL_EXPIRED:
             user = db.mark_user_email_expired(user.id) or user
             access_state = describe_user_access(user)
+        # Link expired or never sent (e.g. SMTP was down at signup): send a fresh one,
+        # since players can't ask an admin to resend it anymore.
+        if access_state.email_verification_state in {
+            account_lifecycle.EMAIL_QUEUED,
+            account_lifecycle.EMAIL_EXPIRED,
+        }:
+            if user.email:
+                background_tasks.add_task(_try_send_verification_email, db, user, via="login")
+                # Returned (not raised) so the background send still runs afterwards.
+                return JSONResponse(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    content={"detail": "Your email is not verified yet. We are sending a new link to your email. Open it, then log in."},
+                    background=background_tasks,
+                )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=access_state.message,

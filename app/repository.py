@@ -1103,6 +1103,17 @@ class TelemetryRepository:
             return None
         return self._build_user(updated_document)
 
+    def mark_user_email_queued(self, user_id: int) -> None:
+        """Undo a 'sent' stamp after the SMTP send failed, so the send is retried."""
+        self.users.update_one(
+            {"id": user_id, "email_verification_state": account_lifecycle.EMAIL_SENT},
+            {"$set": {
+                "email_verification_state": account_lifecycle.EMAIL_QUEUED,
+                "verification_token_hash": None,
+                "verification_expires_at": None,
+            }},
+        )
+
     def store_email_verification_token(
         self,
         user_id: int,
