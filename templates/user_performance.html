@@ -434,6 +434,73 @@
             color: var(--muted);
         }
 
+        .log-shell {
+            margin-bottom: 1rem;
+        }
+
+        .log-scroll {
+            max-height: 460px;
+            overflow-y: auto;
+        }
+
+        .log-table th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            padding: 0.6rem 1rem;
+        }
+
+        .log-table td {
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid rgba(25, 19, 14, 0.15);
+            vertical-align: middle;
+        }
+
+        .log-table tbody tr:nth-child(even) {
+            background: rgba(234, 223, 206, 0.35);
+        }
+
+        .small {
+            font-size: 0.78rem;
+        }
+
+        .nowrap {
+            white-space: nowrap;
+        }
+
+        .pill {
+            display: inline-block;
+            padding: 0.18rem 0.6rem;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+
+        .pill.ok {
+            background: var(--success-soft);
+            color: #3d6e35;
+        }
+
+        .pill.bad {
+            background: var(--danger-soft);
+            color: var(--danger);
+        }
+
+        .chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+        }
+
+        .chip {
+            padding: 0.15rem 0.5rem;
+            border: 1px solid rgba(25, 19, 14, 0.25);
+            border-radius: 4px;
+            background: #fff;
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+
         @media (max-width: 1180px) {
             .layout,
             .metrics,
@@ -811,94 +878,100 @@
 
     <div class="section-divider">Quest Logs</div>
 
-    <section class="table-shell">
+    <section class="table-shell log-shell">
         <div class="table-head">
             <strong>Quest attempt history</strong>
-            <span class="tag">{{ quest_attempts|length }} recorded attempt{{ "" if quest_attempts|length == 1 else "s" }}</span>
+            <span class="muted">{{ quest_attempts|length }} total{% if quest_attempts|length > 8 %} · scroll for more{% endif %}</span>
         </div>
 
-        <table>
-            <thead>
-            <tr>
-                <th>Quest</th>
-                <th>Result</th>
-                <th>Recorded at</th>
-                <th>Time</th>
-                <th>Skills used</th>
-            </tr>
-            </thead>
-            <tbody>
-            {% if quest_attempts %}
-                {% for attempt in quest_attempts %}
-                    <tr>
-                        <td data-label="Quest">
-                            <div class="stack">
-                                <div class="user-name">{{ attempt.quest_name }}</div>
-                                <div class="muted">{{ attempt.quest_id }}</div>
-                            </div>
-                        </td>
-                        <td data-label="Result">
-                            <div class="tag-row">
-                                <span class="tag {{ 'verified' if attempt.success == 1 else 'rejected' }}">{{ attempt.outcome_label }}</span>
-                                <span class="tag">{{ attempt.quest_result }}</span>
-                            </div>
-                        </td>
-                        <td data-label="Recorded at">{{ attempt.effective_at }}</td>
-                        <td data-label="Time">{{ attempt.time_spent_seconds }}s</td>
-                        <td data-label="Skills used">{{ attempt.skills_used_summary }}</td>
-                    </tr>
-                {% endfor %}
-            {% else %}
+        <div class="log-scroll">
+            <table class="log-table">
+                <thead>
                 <tr>
-                    <td colspan="5" class="empty">No quest attempts recorded for this player yet.</td>
+                    <th>Quest</th>
+                    <th>Result</th>
+                    <th>Time</th>
+                    <th>Skills used</th>
+                    <th>Date</th>
                 </tr>
-            {% endif %}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                {% if quest_attempts %}
+                    {% for attempt in quest_attempts %}
+                        <tr>
+                            <td data-label="Quest">
+                                <strong>{{ attempt.quest_name }}</strong>
+                                {% if attempt.quest_id != attempt.quest_name %}<div class="muted small">{{ attempt.quest_id }}</div>{% endif %}
+                            </td>
+                            <td data-label="Result">
+                                <span class="pill {{ 'ok' if attempt.success == 1 else 'bad' }}">{{ attempt.outcome_label }}</span>
+                            </td>
+                            <td data-label="Time">{{ attempt.time_spent_seconds }}s</td>
+                            <td data-label="Skills used">
+                                {% if attempt.skills_used_summary == "No skills recorded" %}
+                                    <span class="muted">None</span>
+                                {% else %}
+                                    <div class="chips">
+                                        {% for skill in attempt.skills_used_summary.split(", ") %}<span class="chip">{{ skill }}</span>{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </td>
+                            <td data-label="Date" class="muted nowrap">{{ attempt.effective_at }}</td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="5" class="empty">No quest attempts yet.</td>
+                    </tr>
+                {% endif %}
+                </tbody>
+            </table>
+        </div>
     </section>
 
     <div class="section-divider">Run History</div>
 
-    <section class="table-shell">
+    <section class="table-shell log-shell">
         <div class="table-head">
             <strong>Session run history</strong>
-            <span class="tag">{{ summary.total_runs }} recorded run{{ "" if summary.total_runs == 1 else "s" }}</span>
+            <span class="muted">{{ summary.total_runs }} total{% if summary.total_runs > 8 %} · scroll for more{% endif %}</span>
         </div>
 
-        <table>
-            <thead>
-            <tr>
-                <th>Session</th>
-                <th>Recorded at</th>
-                <th>Source</th>
-                <th>Result</th>
-                <th>Holland</th>
-                <th>Time</th>
-                <th>Cleared</th>
-                <th>Stars</th>
-            </tr>
-            </thead>
-            <tbody>
-            {% if runs %}
-                {% for run in runs %}
-                    <tr>
-                        <td data-label="Session">{{ run.session_id }}</td>
-                        <td data-label="Recorded at">{{ run.created_at }}</td>
-                        <td data-label="Source">{{ run.cluster_source or run.source }}</td>
-                        <td data-label="Result">{{ run.cluster_label or "Pending cluster result" }}</td>
-                        <td data-label="Holland">{{ run.cluster_holland_code or run.holland_code or "N/A" }}</td>
-                        <td data-label="Time">{{ '%.0f'|format(run.total_time_spent_seconds) }}s</td>
-                        <td data-label="Cleared">{{ run.rounds_cleared }}/{{ run.rounds_attempted }}</td>
-                        <td data-label="Stars">{{ run.total_stars }}</td>
-                    </tr>
-                {% endfor %}
-            {% else %}
+        <div class="log-scroll">
+            <table class="log-table">
+                <thead>
                 <tr>
-                    <td colspan="8" class="empty">No session runs recorded for this player yet.</td>
+                    <th>Career result</th>
+                    <th>Holland</th>
+                    <th>Cleared</th>
+                    <th>Stars</th>
+                    <th>Time</th>
+                    <th>Date</th>
                 </tr>
-            {% endif %}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                {% if runs %}
+                    {% for run in runs %}
+                        <tr title="Session {{ run.session_id }} · source: {{ run.cluster_source or run.source }}">
+                            <td data-label="Career result">
+                                <strong>{{ run.career_result or run.cluster_label or "Pending" }}</strong>
+                                {% if run.career_result and run.cluster_label %}<div class="muted small">{{ run.cluster_label }}</div>{% endif %}
+                            </td>
+                            <td data-label="Holland">{{ run.cluster_holland_code or run.holland_code or "-" }}</td>
+                            <td data-label="Cleared">{{ run.rounds_cleared }} / {{ run.rounds_attempted }}</td>
+                            <td data-label="Stars">{{ run.total_stars }}</td>
+                            <td data-label="Time">{{ '%.0f'|format(run.total_time_spent_seconds) }}s</td>
+                            <td data-label="Date" class="muted nowrap">{{ run.created_at }}</td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="6" class="empty">No session runs yet.</td>
+                    </tr>
+                {% endif %}
+                </tbody>
+            </table>
+        </div>
     </section>
 </div>
 </body>

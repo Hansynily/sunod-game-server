@@ -7,6 +7,15 @@ from pymongo.errors import DuplicateKeyError
 
 from app import account_lifecycle, models
 
+RIASEC_CATEGORY_NAMES = {
+    "R": "Realistic",
+    "I": "Investigative",
+    "A": "Artistic",
+    "S": "Social",
+    "E": "Enterprising",
+    "C": "Conventional",
+}
+
 
 class DuplicateUserError(Exception):
     pass
@@ -1473,21 +1482,33 @@ class TelemetryRepository:
         parts: list[str] = []
         for skill in skills:
             label = skill.skill_name.strip() if skill.skill_name else "Unknown skill"
+            category = self._riasec_category_names(skill.riasec_code)
+            if category:
+                label = f"{label} ({category})"
             if skill.usage_count > 1:
-                parts.append(f"{label} x{skill.usage_count}")
-            else:
-                parts.append(label)
+                label = f"{label} x{skill.usage_count}"
+            parts.append(label)
 
         return ", ".join(parts)
 
     def _format_session_round_skills(self, round_entry: dict[str, Any]) -> str:
         parts: list[str] = []
-        for letter in ("R", "I", "A", "S", "E", "C"):
+        for letter, category in RIASEC_CATEGORY_NAMES.items():
             count = self._coerce_int(round_entry.get(f"skill_use_{letter.lower()}"))
             if count > 0:
-                parts.append(f"{letter} x{count}")
+                parts.append(f"{category} x{count}" if count > 1 else category)
 
         return ", ".join(parts) if parts else "No skills recorded"
+
+    @staticmethod
+    def _riasec_category_names(code: str | None) -> str:
+        raw = str(code or "").strip()
+        if raw.title() in RIASEC_CATEGORY_NAMES.values():
+            return raw.title()
+        letters = [ch for ch in raw.upper() if ch.isalpha()]
+        if not letters or any(ch not in RIASEC_CATEGORY_NAMES for ch in letters):
+            return raw
+        return " / ".join(RIASEC_CATEGORY_NAMES[ch] for ch in dict.fromkeys(letters))
 
     def _admin_quest_attempt_row_matches_filters(
         self,
