@@ -329,6 +329,18 @@ class TelemetryRepository:
         run_finished: bool = False,
         quest_records: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
+        # The server copy is the only save (the game keeps none on the device), and every
+        # checkpoint is the whole run so far. A checkpoint whose ids are a strict subset of
+        # what's stored is an older snapshot that arrived late (or a second device that
+        # hasn't caught up): keep the newer save instead of rolling the player back.
+        # Anything else (a superset, or a different run after New Game) replaces it.
+        existing = self.player_run_state.find_one({"player_id": player_id})
+        if existing:
+            stored_ids = set(existing.get("completed_quest_ids") or [])
+            incoming_ids = set(completed_quest_ids or [])
+            if incoming_ids < stored_ids:
+                return existing
+
         document = {
             "player_id": player_id,
             "session_id": session_id,
@@ -375,6 +387,22 @@ class TelemetryRepository:
 
     def clear_run_state(self, player_id: str) -> None:
         self.player_run_state.delete_one({"player_id": player_id})
+
+    def attach_quest_records_to_latest_run(self, player_id: str) -> None:
+        """At End Run, copy the run-state's per-quest records (names, question codes,
+        pass/fail, stars, time, skill use) onto the newest session_run, so the admin's run
+        history keeps a detailed record of every quest after the run-state is reset."""
+        state = self.player_run_state.find_one({"player_id": player_id})
+        records = (state or {}).get("quest_records") or []
+        if not records:
+            return
+        latest = self.session_runs.find_one({"player_id": player_id}, sort=[("created_at", -1)])
+        if not latest:
+            return
+        self.session_runs.update_one(
+            {"_id": latest["_id"]},
+            {"$set": {"quest_records": list(records)}},
+        )
 
     def upsert_play_session(
         self,

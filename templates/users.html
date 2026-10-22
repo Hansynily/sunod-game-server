@@ -446,7 +446,9 @@
                 min-width: 0;
             }
         }
-    </style>
+            .progress-track { height: 6px; border-radius: 999px; background: rgba(127,127,127,0.25); overflow: hidden; margin: 0.25rem 0; min-width: 90px; }
+        .progress-fill { height: 100%; background: var(--accent, #4a9); }
+</style>
 </head>
 <body>
 {% set stats = namespace(total_players=users|length, total_runs=0, pending=0, approved=0, rejected=0) %}
@@ -562,6 +564,7 @@
                 <th>User</th>
                 <th>Verification</th>
                 <th>Last activity</th>
+                <th>Game progress</th>
                 <th>Latest result</th>
                 <th>Actions</th>
             </tr>
@@ -598,6 +601,18 @@
                                 <div class="muted">{{ user.total_runs }} run{{ "" if user.total_runs == 1 else "s" }}</div>
                                 <div class="muted">Last run: {{ user.last_run_at or "n/a" }}</div>
                             </div>
+                        </td>
+                        <td data-label="Game progress">
+                            {% if user.progress_has_run %}
+                                <div class="stack">
+                                    <div class="user-name">{{ '%.0f'|format(user.progress_percent) }}%</div>
+                                    <div class="progress-track" title="{{ user.progress_played }} of 48 quests played"><div class="progress-fill" style="width: {{ '%.0f'|format(user.progress_percent) }}%;"></div></div>
+                                    <div class="muted">{{ user.progress_played }} / 48 quests</div>
+                                    <div class="muted">{{ "Run finished" if user.progress_finished else (user.progress_stage or "In progress") }}</div>
+                                </div>
+                            {% else %}
+                                <div class="muted">No run in progress</div>
+                            {% endif %}
                         </td>
                         <td data-label="Latest result">
                             {% if user.last_predicted_cluster is not none %}
@@ -650,7 +665,7 @@
                 {% endfor %}
             {% else %}
                 <tr>
-                    <td colspan="5" class="empty">No users found yet.</td>
+                    <td colspan="6" class="empty">No users found yet.</td>
                 </tr>
             {% endif %}
             </tbody>

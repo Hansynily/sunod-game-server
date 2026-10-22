@@ -365,6 +365,10 @@ def _summarize_session_run(document: dict[str, Any]) -> dict[str, Any]:
         "cluster_source": document.get("cluster_source"),
         "cluster_model_version": document.get("cluster_model_version"),
         "cluster_example_careers": list(document.get("cluster_example_careers") or []),
+        # Detailed per-quest record of the run: names/codes when the run-state records were
+        # attached at End Run, else the bare rounds (older runs).
+        "quests": (quests := _quest_detail_rows(document.get("quest_records") or rounds)),
+        "counts": _outcome_counts(quests),
     }
 
 
@@ -663,6 +667,135 @@ def _play_time_summary(db, player_id: str | None) -> dict[str, Any]:
         return schemas.PlayTimeSummaryOut().model_dump()
 
 
+TOTAL_GAME_QUESTS = 48
+_STAGE_BY_PREFIX = {"e": "Elementary", "h": "High School", "c": "College"}
+_STAGE_BY_SCENE = {"Town_Elementary": "Elementary", "Town_HighSchool": "High School", "Town_College": "College"}
+_RIASEC_NAMES = {"R": "Realistic", "I": "Investigative", "A": "Artistic", "S": "Social", "E": "Enterprising", "C": "Conventional"}
+
+
+def _quest_outcome(completed: bool, time_spent: float, skill_uses: int) -> str:
+    """completed / failed / rejected. 'Rejected' only exists in runs from before the
+    "Not for me" option was removed: a quest turned down was saved as not completed with
+    no time and no skill use. Everything since is either completed or failed."""
+    if completed:
+        return "completed"
+    if time_spent <= 0.0 and skill_uses == 0:
+        return "rejected"
+    return "failed"
+
+
+def _quest_stage(quest_id: str) -> str:
+    prefix = (quest_id or "").split("_", 1)[0].lower()
+    return _STAGE_BY_PREFIX.get(prefix, "")
+
+
+def _quest_detail_rows(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One display row per quest in a run, from run-state quest records (preferred: they
+    carry name + question code) or session_run rounds (older runs)."""
+    rows: list[dict[str, Any]] = []
+    for index, raw in enumerate(records or []):
+        if not isinstance(raw, dict):
+            continue
+        quest_id = str(raw.get("quest_id") or raw.get("challenge_id") or f"quest-{index + 1}")
+        completed = bool(raw.get("completed", raw.get("solved", False)))
+        stars = int(raw.get("stars", raw.get("stars_earned", 0)) or 0)
+        time_spent = float(raw.get("time_spent_seconds", 0) or 0)
+        uses = {d: int(raw.get(f"skill_use_{d}", 0) or 0) for d in "riasec"}
+        outcome = _quest_outcome(completed, time_spent, sum(uses.values()))
+        letter = str(raw.get("primary_riasec") or "").upper()[:1]
+        rows.append(
+            {
+                "order": index + 1,
+                "quest_id": quest_id,
+                "quest_name": str(raw.get("quest_name") or "") or quest_id,
+                "question_code": str(raw.get("question_code") or ""),
+                "letter": letter,
+                "letter_name": _RIASEC_NAMES.get(letter, ""),
+                "stage": _quest_stage(quest_id),
+                "outcome": outcome,
+                "outcome_label": {"completed": "Completed", "failed": "Failed", "rejected": "Rejected"}[outcome],
+                "stars": stars,
+                # The 1-5 answer this quest gives its questionnaire item (same rule as the game).
+                "item_score": (2 + max(0, min(3, stars))) if completed else 1,
+                "time_spent_seconds": round(time_spent, 1),
+                "skills_used": ", ".join(f"{d.upper()}x{n}" for d, n in uses.items() if n > 0) or "None",
+            }
+        )
+    return rows
+
+
+def _outcome_counts(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Counts behind the clear rate: completed / failed / rejected, star spread and the
+    1-5 item scores those quests produced."""
+    counts = {"completed": 0, "failed": 0, "rejected": 0}
+    stars = {0: 0, 1: 0, 2: 0, 3: 0}
+    scores = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    for row in rows:
+        counts[row["outcome"]] = counts.get(row["outcome"], 0) + 1
+        if row["outcome"] == "completed":
+            stars[max(0, min(3, row["stars"]))] += 1
+        scores[max(1, min(5, row["item_score"]))] += 1
+    attempted = sum(counts.values())
+    return {
+        **counts,
+        "attempted": attempted,
+        "clear_rate": (counts["completed"] / attempted * 100.0) if attempted else 0.0,
+        "stars": stars,
+        "item_scores": scores,
+    }
+
+
+def _build_progress_summary(run_state: dict[str, Any] | None) -> dict[str, Any]:
+    """Game completion for the player's current (or last) playthrough: quests played out
+    of 48, by stage, from the run-state checkpoint."""
+    if not run_state:
+        return {"has_run": False, "played": 0, "total": TOTAL_GAME_QUESTS, "percent": 0.0,
+                "stage": "", "finished": False, "by_stage": [], "counts": _outcome_counts([]), "quests": []}
+    latest: dict[str, dict[str, Any]] = {}
+    for record in run_state.get("quest_records") or []:
+        if isinstance(record, dict) and record.get("quest_id"):
+            latest[str(record["quest_id"])] = record   # a quest counts once (latest record wins)
+    rows = _quest_detail_rows(list(latest.values()))
+    played = min(len(rows), TOTAL_GAME_QUESTS)
+    by_stage = []
+    for stage in ("Elementary", "High School", "College"):
+        done = sum(1 for r in rows if r["stage"] == stage)
+        by_stage.append({"stage": stage, "played": done, "total": 16, "percent": min(100.0, done / 16 * 100.0)})
+    updated = run_state.get("updated_at")
+    return {
+        "has_run": True,
+        "played": played,
+        "total": TOTAL_GAME_QUESTS,
+        "percent": played / TOTAL_GAME_QUESTS * 100.0,
+        "stage": _STAGE_BY_SCENE.get(str(run_state.get("floor_scene") or ""), str(run_state.get("floor_scene") or "")),
+        "finished": bool(run_state.get("run_finished")),
+        "updated_at": _format_admin_datetime(updated) if updated else None,
+        "by_stage": by_stage,
+        "counts": _outcome_counts(rows),
+        "quests": rows,
+    }
+
+
+def _admin_cluster_explainer() -> list[dict[str, Any]]:
+    """The 8 clusters the model sorts players into, for the admin's explanation panel."""
+    rows = []
+    for cluster in range(8):
+        profile = cluster_mapping.get_cluster_profile(cluster)
+        if profile is None:
+            continue
+        rows.append(
+            {
+                "cluster": cluster,
+                "label": profile.label,
+                "holland_code": profile.holland_code,
+                "letters": ", ".join(_RIASEC_NAMES.get(ch, ch) for ch in profile.holland_code if ch in _RIASEC_NAMES),
+                "careers": ", ".join(profile.example_careers) or "-",
+                "is_outlier": profile.is_outlier,
+            }
+        )
+    return rows
+
+
 def _format_admin_quest_attempt_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     formatted_rows: list[dict[str, Any]] = []
     for row in rows:
@@ -671,7 +804,15 @@ def _format_admin_quest_attempt_rows(rows: list[dict[str, Any]]) -> list[dict[st
         display_row["started_at"] = _format_admin_datetime(row.get("started_at"))
         display_row["completed_at"] = _format_admin_datetime(row.get("completed_at"))
         display_row["effective_at"] = _format_admin_datetime(effective_at)
-        display_row["outcome_label"] = "Success" if int(row.get("success", 0) or 0) == 1 else "Failure"
+        success = int(row.get("success", 0) or 0) == 1
+        skills = str(row.get("skills_used_summary") or "")
+        outcome = _quest_outcome(
+            success,
+            float(row.get("time_spent_seconds", 0) or 0),
+            0 if (not skills or skills == "No skills recorded") else 1,
+        )
+        display_row["outcome"] = outcome
+        display_row["outcome_label"] = {"completed": "Completed", "failed": "Failed", "rejected": "Rejected"}[outcome]
         formatted_rows.append(display_row)
     return formatted_rows
 
@@ -1543,6 +1684,12 @@ def finish_my_run_state(
 ):
     """End Run - marks the caller's run finished so Continue greys out. One atomic flag
     set, no client round trip of the whole state, works even if no checkpoint exists."""
+    attach = getattr(db, "attach_quest_records_to_latest_run", None)
+    if attach is not None:
+        try:
+            attach(current_user.player_id)
+        except Exception:
+            LOGGER.exception("Could not attach quest records to the finished run of %s.", current_user.player_id)
     db.finish_run_state(current_user.player_id)
     audit_log(
         "RUN_STATE_FINISHED",
@@ -2782,12 +2929,27 @@ def admin_users_page(
         )
 
     normalized_sort_by, normalized_sort_dir = _normalize_admin_user_sort(sort_by, sort_dir)
+    all_users = db.list_users()
     users = _build_admin_user_rows(
-        db.list_users(),
+        all_users,
         db.list_session_run_overview_by_player(),
         sort_by=normalized_sort_by,
         sort_dir=normalized_sort_dir,
     )
+    # Game completion (quests played out of 48) for each player's current playthrough.
+    player_ids = {u.id: u.player_id for u in all_users}
+    for row in users:
+        pid = player_ids.get(row["user_id"])
+        try:
+            progress = _build_progress_summary(db.get_run_state(pid) if pid else None)
+        except Exception:
+            LOGGER.exception("Progress summary failed for user %s.", row["user_id"])
+            progress = _build_progress_summary(None)
+        row["progress_percent"] = progress["percent"]
+        row["progress_played"] = progress["played"]
+        row["progress_stage"] = progress["stage"]
+        row["progress_finished"] = progress["finished"]
+        row["progress_has_run"] = progress["has_run"]
     return templates.TemplateResponse(
         request,
         "users.html",
@@ -3055,6 +3217,13 @@ def admin_user_performance_page(
         quest_attempt_rows=db.list_admin_quest_attempt_rows(user_id=user.id),
         play_time=_play_time_summary(db, user.player_id),
     )
+    progress = _build_progress_summary(db.get_run_state(user.player_id) if user.player_id else None)
+    quest_attempt_rows = _format_admin_quest_attempt_rows(performance["quest_attempts"])
+    attempt_counts = {"completed": 0, "failed": 0, "rejected": 0}
+    for row in quest_attempt_rows:
+        attempt_counts[row["outcome"]] += 1
+    # Clear rate counts across every finished run (the in-progress run is under Progress).
+    all_run_quests = [q for run in performance["runs"] for q in run["quests"]]
 
     latest_source = performance["latest_source"] or "No runs yet"
     pending_cluster_label = "Pending cluster result" if performance["total_runs"] > 0 else "No cluster yet"
@@ -3096,7 +3265,11 @@ def admin_user_performance_page(
             "user": user,
             "can_manage_user": current_user.role == "admin",
             "runs": performance["runs"],
-            "quest_attempts": _format_admin_quest_attempt_rows(performance["quest_attempts"]),
+            "quest_attempts": quest_attempt_rows,
+            "attempt_counts": attempt_counts,
+            "progress": progress,
+            "run_counts": _outcome_counts(all_run_quests),
+            "cluster_profiles": _admin_cluster_explainer(),
             "summary": summary,
             **_flash_context(request),
         },
