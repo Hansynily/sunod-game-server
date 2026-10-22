@@ -1,0 +1,30 @@
+{# Small shared pieces for the admin pages. #}
+
+{% macro section_head(no, title, count=None) -%}
+<div class="section-head">
+    <span class="section-no">{{ no }}</span>
+    <h2>{{ title }}</h2>
+    {% if count is not none %}<span class="count">{{ count }}</span>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro stars(n, total=3) -%}
+<span class="stars" aria-label="{{ n }} of {{ total }} stars">{% for i in range(total) %}{% if i < n %}★{% else %}<span class="off">★</span>{% endif %}{% endfor %}</span>
+{%- endmacro %}
+
+{% macro letter(l) -%}
+{% if l %}<span class="letter {{ l }}" title="{{ {'R':'Realistic','I':'Investigative','A':'Artistic','S':'Social','E':'Enterprising','C':'Conventional'}.get(l, l) }}">{{ l }}</span>{% endif %}
+{%- endmacro %}
+
+{% macro outcome(o, label) -%}
+<span class="pill {{ o }}">{{ label }}</span>
+{%- endmacro %}
+
+{# Column header that sorts the players table (server-side). #}
+{% macro sort_th(key, label, sort_by, sort_dir, cls="") -%}
+{% set active = key == sort_by %}
+{% set next_dir = "asc" if active and sort_dir == "desc" else "desc" %}
+<th class="{{ cls }}{{ ' sorted' if active }}" {% if active %}aria-sort="{{ 'descending' if sort_dir == 'desc' else 'ascending' }}"{% endif %}>
+    <a href="/admin/users?sort_by={{ key }}&sort_dir={{ next_dir }}" title="Sort by {{ label }}">{{ label }}{% if active %} {{ "↓" if sort_dir == "desc" else "↑" }}{% endif %}</a>
+</th>
+{%- endmacro %}

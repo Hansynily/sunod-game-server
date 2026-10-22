@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}SUNOD Admin{% endblock %} · SUNOD Admin</title>
+    <link href="/static/fonts/outfit.css" rel="stylesheet" />
+    <link href="/static/admin.css?v=3" rel="stylesheet" />
+    {% block head %}{% endblock %}
+</head>
+<body>
+{% block nav %}
+<header class="nav">
+    <div class="nav-inner">
+        <a class="brand" href="/admin/users">
+            <span class="brand-mark">S</span>
+            <span>SUNOD<small>Admin</small></span>
+        </a>
+        {% if current_user and current_user.role == "admin" %}
+        <nav class="nav-links" aria-label="Admin sections">
+            <a href="/admin/users" class="{{ 'active' if nav == 'players' }}">Players</a>
+            <a href="/admin/quest-logs" class="{{ 'active' if nav == 'quest-logs' }}">Quest logs</a>
+            <a href="/admin/reports" class="{{ 'active' if nav == 'reports' }}">Reports</a>
+            <a href="/admin/datasets" class="{{ 'active' if nav == 'datasets' }}">Datasets</a>
+            <a href="/admin/quest-bindings" class="{{ 'active' if nav == 'bindings' }}">Quest bindings</a>
+        </nav>
+        {% else %}
+        <div style="flex:1"></div>
+        {% endif %}
+        {% if current_user %}
+        <div class="nav-user">
+            <span class="who">Signed in as <strong>{{ current_user.username }}</strong></span>
+            <form method="post" action="/admin/logout" class="inline"><button type="submit">Log out</button></form>
+        </div>
+        {% endif %}
+    </div>
+</header>
+{% endblock %}
+
+<main class="page">
+    {% block header %}{% endblock %}
+
+    {% if notice_message %}
+        <div class="flash ok" role="status">
+            {{ notice_message }}
+            {% if notice_link %}<div class="small"><a href="{{ notice_link }}" target="_blank" rel="noopener noreferrer">{{ notice_link }}</a></div>{% endif %}
+        </div>
+    {% endif %}
+    {% if error_message %}
+        <div class="flash err" role="alert">{{ error_message }}</div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+</main>
+{% block scripts %}{% endblock %}
+</body>
+</html>

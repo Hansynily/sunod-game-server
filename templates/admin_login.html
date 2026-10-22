@@ -1,186 +1,26 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8" />
-    <title>Sunod Admin Login</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="/static/fonts/outfit.css" rel="stylesheet" />
-    <style>
-        :root {
-            --bg: #f4efe7;
-            --bg-2: #eadfce;
-            --panel: #fffaf3;
-            --text: #16110d;
-            --muted: #6b6259;
-            --border: #16110d;
-            --accent: #d4512b;
-            --accent-2: #8fca78;
-            --danger: #a53f22;
-            --shadow: 6px 6px 0 #16110d;
-        }
+{% extends "_base.html" %}
+{% block title %}Log in{% endblock %}
+{% block nav %}{% endblock %}
 
-        * {
-            box-sizing: border-box;
-        }
+{% block header %}{% endblock %}
 
-        body {
-            margin: 0;
-            min-height: 100vh;
-            display: grid;
-            place-items: center;
-            padding: 2rem 1.25rem;
-            background:
-                radial-gradient(circle at top left, rgba(212, 81, 43, 0.16), transparent 28%),
-                radial-gradient(circle at bottom right, rgba(143, 202, 120, 0.18), transparent 24%),
-                linear-gradient(180deg, var(--bg), #efe5d6 100%);
-            color: var(--text);
-            font-family: "Outfit", sans-serif;
-        }
-
-        .shell {
-            width: min(100%, 440px);
-        }
-
-        .panel {
-            background: var(--panel);
-            border: 2px solid var(--border);
-            box-shadow: var(--shadow);
-        }
-
-        .micro {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.72rem;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-            color: var(--muted);
-            font-weight: 600;
-        }
-
-        .micro::before {
-            content: "";
-            width: 14px;
-            height: 14px;
-            border: 2px solid var(--border);
-            background: var(--accent);
-            display: inline-block;
-        }
-
-        .login {
-            padding: 1.75rem;
-        }
-
-        .login h2 {
-            margin: 0.8rem 0 1.25rem;
-            font-size: 2rem;
-            letter-spacing: -0.04em;
-        }
-
-        .banner {
-            margin-bottom: 1rem;
-            padding: 0.9rem 1rem;
-            border: 2px solid var(--border);
-            font-size: 0.9rem;
-            line-height: 1.45;
-        }
-
-        .banner.notice {
-            background: rgba(143, 202, 120, 0.18);
-        }
-
-        .banner.error {
-            background: rgba(212, 81, 43, 0.16);
-            color: var(--danger);
-        }
-
-        label {
-            display: block;
-            margin-bottom: 0.35rem;
-            font-size: 0.74rem;
-            letter-spacing: 0.14em;
-            text-transform: uppercase;
-            color: var(--muted);
-            font-weight: 700;
-        }
-
-        .field {
-            margin-bottom: 1rem;
-        }
-
-        input {
-            width: 100%;
-            padding: 0.95rem 1rem;
-            border: 2px solid var(--border);
-            background: #fffdf9;
-            color: var(--text);
-            font: inherit;
-        }
-
-        input:focus {
-            outline: 3px solid rgba(212, 81, 43, 0.2);
-            outline-offset: 2px;
-        }
-
-        .button {
-            width: 100%;
-            padding: 1rem 1.1rem;
-            border: 2px solid var(--border);
-            background: var(--accent);
-            color: white;
-            font: inherit;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.12em;
-            cursor: pointer;
-            box-shadow: var(--shadow);
-            transition: transform 0.08s ease, box-shadow 0.08s ease;
-        }
-
-        .button:hover {
-            transform: translate(-2px, -2px);
-            box-shadow: 8px 8px 0 var(--border);
-        }
-
-        .button:active {
-            transform: translate(4px, 4px);
-            box-shadow: none;
-        }
-
-        @media (max-width: 640px) {
-            .login {
-                padding: 1.25rem;
-            }
-        }
-    </style>
-</head>
-<body>
-<div class="shell">
-    <section class="panel login">
-        <span class="micro">Admin</span>
-        <h2>Admin Login</h2>
-
-        {% if notice_message %}
-            <div class="banner notice">{{ notice_message }}</div>
-        {% endif %}
-        {% if error_message %}
-            <div class="banner error">{{ error_message }}</div>
-        {% endif %}
-
-        <form method="post" action="/admin/login">
-            <div class="field">
-                <label for="username">Username</label>
-                <input id="username" name="username" type="text" autocomplete="username" required />
+{% block content %}
+<div class="auth" style="min-height: calc(100vh - 92px)">
+    <div class="auth-card">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px">
+            <span class="brand-mark" style="border-color: var(--ink); width:44px; height:44px; font-size:22px">S</span>
+            <div><div class="strong" style="font-size:22px; line-height:1">SUNOD</div><div class="eyebrow">Admin dashboard</div></div>
+        </div>
+        <section class="section block-yellow" style="margin-top:0">
+            <div class="section-head"><h2>Log in</h2></div>
+            <div class="section-body">
+                <form method="post" action="/admin/login" style="display:grid; gap:14px">
+                    <div class="field"><label for="username">Username</label><input id="username" name="username" type="text" autocomplete="username" required autofocus /></div>
+                    <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required /></div>
+                    <button class="btn btn-primary" type="submit" style="width:100%">Log in</button>
+                </form>
             </div>
-
-            <div class="field">
-                <label for="password">Password</label>
-                <input id="password" name="password" type="password" autocomplete="current-password" required />
-            </div>
-
-            <button class="button" type="submit">Enter dashboard</button>
-        </form>
-    </section>
+        </section>
+    </div>
 </div>
-</body>
-</html>
+{% endblock %}

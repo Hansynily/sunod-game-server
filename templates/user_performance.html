@@ -1,1253 +1,455 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8" />
-    <title>Sunod Player Report - {{ user.username }}</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="/static/fonts/outfit.css" rel="stylesheet" />
-    <style>
-        :root {
-            --bg: #f4ede1;
-            --bg-2: #eadfce;
-            --panel: #fff9f1;
-            --text: #19130e;
-            --muted: #675f58;
-            --border: #19130e;
-            --accent: #d4552c;
-            --accent-soft: rgba(212, 85, 44, 0.14);
-            --success: #5f9d55;
-            --success-soft: rgba(95, 157, 85, 0.15);
-            --warning: #bf8a2f;
-            --warning-soft: rgba(191, 138, 47, 0.16);
-            --danger: #a34024;
-            --danger-soft: rgba(163, 64, 36, 0.16);
-            --shadow: 5px 5px 0 #19130e;
-        }
+{% extends "_base.html" %}
+{% from "_ui.html" import section_head, stars, letter, outcome %}
+{% set nav = "players" %}
+{% block title %}{{ user.username }}{% endblock %}
 
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            min-height: 100vh;
-            background:
-                radial-gradient(circle at top left, rgba(212, 85, 44, 0.14), transparent 22%),
-                linear-gradient(180deg, var(--bg), #efe4d4 100%);
-            color: var(--text);
-            font-family: "Outfit", sans-serif;
-        }
-
-        .shell {
-            max-width: 1480px;
-            margin: 0 auto;
-            padding: 1.25rem;
-        }
-
-        .panel,
-        .metric,
-        .table-shell {
-            background: var(--panel);
-            border: 2px solid var(--border);
-            box-shadow: var(--shadow);
-        }
-
-        .topbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .title-panel {
-            padding: 1.35rem 1.45rem;
-            flex: 1;
-        }
-
-        .eyebrow {
-            display: inline-block;
-            color: var(--muted);
-            font-size: 0.72rem;
-            font-weight: 700;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-        }
-
-        h1 {
-            margin: 0.6rem 0 0.35rem;
-            font-size: clamp(2.5rem, 5vw, 4.4rem);
-            letter-spacing: -0.06em;
-            line-height: 0.95;
-        }
-
-        .title-panel p {
-            margin: 0;
-            color: var(--muted);
-            line-height: 1.65;
-            max-width: 54rem;
-        }
-
-        .top-actions,
-        .action-row,
-        .tag-row {
-            display: flex;
-            gap: 0.55rem;
-            flex-wrap: wrap;
-        }
-
-        .button,
-        .mini-button {
-            border: 2px solid var(--border);
-            background: var(--panel);
-            color: var(--text);
-            font: inherit;
-            font-weight: 800;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            cursor: pointer;
-            box-shadow: var(--shadow);
-            transition: transform 0.08s ease, box-shadow 0.08s ease;
-        }
-
-        .button {
-            padding: 0.82rem 1rem;
-            min-height: 44px;
-        }
-
-        .mini-button {
-            padding: 0.64rem 0.8rem;
-            font-size: 0.71rem;
-            box-shadow: 4px 4px 0 var(--border);
-        }
-
-        .button:hover,
-        .mini-button:hover {
-            transform: translate(-2px, -2px);
-        }
-
-        .button:hover {
-            box-shadow: 8px 8px 0 var(--border);
-        }
-
-        .mini-button:hover {
-            box-shadow: 6px 6px 0 var(--border);
-        }
-
-        .button:active,
-        .mini-button:active {
-            transform: translate(4px, 4px);
-            box-shadow: none;
-        }
-
-        .button.accent,
-        .mini-button.accent {
-            background: var(--accent);
-            color: white;
-        }
-
-        .mini-button.danger {
-            background: var(--danger);
-            color: white;
-        }
-
-        .banner {
-            margin-bottom: 1rem;
-            padding: 0.95rem 1rem;
-            border: 2px solid var(--border);
-            line-height: 1.5;
-        }
-
-        .banner.notice {
-            background: var(--success-soft);
-        }
-
-        .banner-link {
-            margin-top: 0.5rem;
-            word-break: break-all;
-        }
-
-        .banner-link a {
-            color: var(--text);
-            font-weight: 700;
-        }
-
-        .banner.error {
-            background: var(--danger-soft);
-            color: var(--danger);
-        }
-
-        .header-panel {
-            padding: 1rem 1.1rem;
-            margin-bottom: 1rem;
-        }
-
-        .tag {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.34rem 0.58rem;
-            border: 1.5px solid var(--border);
-            background: #fff;
-            font-size: 0.72rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            white-space: nowrap;
-        }
-
-        .tag.pending {
-            background: var(--warning-soft);
-        }
-
-        .tag.approved,
-        .tag.verified {
-            background: var(--success-soft);
-        }
-
-        .tag.rejected,
-        .tag.expired {
-            background: var(--danger-soft);
-        }
-
-        .tag.sent,
-        .tag.queued,
-        .tag.missing,
-        .tag.exempt {
-            background: var(--accent-soft);
-        }
-
-        .meta-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 0.75rem;
-            margin-top: 0.9rem;
-        }
-
-        .meta-item {
-            border: 1.5px solid var(--border);
-            padding: 0.85rem;
-            background: rgba(255, 255, 255, 0.6);
-        }
-
-        .meta-item strong {
-            display: block;
-            color: var(--muted);
-            font-size: 0.72rem;
-            text-transform: uppercase;
-            letter-spacing: 0.14em;
-        }
-
-        .meta-item span {
-            display: block;
-            margin-top: 0.35rem;
-            line-height: 1.45;
-            font-weight: 600;
-        }
-
-        .layout {
-            display: grid;
-            grid-template-columns: 0.98fr 1.02fr;
-            gap: 1rem;
-            align-items: start;
-            margin-bottom: 1rem;
-        }
-
-        .panel-body {
-            padding: 1rem 1.1rem;
-        }
-
-        .panel-title {
-            margin: 0 0 0.8rem;
-            font-size: 1.1rem;
-            letter-spacing: -0.02em;
-        }
-
-        .detail {
-            color: var(--muted);
-            line-height: 1.6;
-        }
-
-        .form-grid {
-            display: grid;
-            gap: 0.8rem;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 0.35rem;
-            color: var(--muted);
-            font-size: 0.72rem;
-            font-weight: 700;
-            letter-spacing: 0.14em;
-            text-transform: uppercase;
-        }
-
-        input,
-        textarea {
-            width: 100%;
-            padding: 0.85rem 0.95rem;
-            border: 2px solid var(--border);
-            background: #fffdfa;
-            color: var(--text);
-            font: inherit;
-        }
-
-        textarea {
-            min-height: 90px;
-            resize: vertical;
-        }
-
-        .metrics {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 0.9rem;
-            margin-bottom: 1rem;
-        }
-
-        .section-divider {
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            margin: 1.25rem 0 0.85rem;
-            color: var(--muted);
-            font-size: 0.74rem;
-            font-weight: 700;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-        }
-
-        .section-divider::after {
-            content: "";
-            flex: 1;
-            height: 2px;
-            background: rgba(25, 19, 14, 0.18);
-        }
-
-        .metric {
-            padding: 1rem 1.1rem;
-        }
-
-        .metric-label {
-            color: var(--muted);
-            font-size: 0.74rem;
-            letter-spacing: 0.16em;
-            text-transform: uppercase;
-            font-weight: 700;
-        }
-
-        .metric-value {
-            margin-top: 0.55rem;
-            font-size: clamp(1.8rem, 3vw, 2.5rem);
-            letter-spacing: -0.05em;
-            font-weight: 800;
-        }
-
-        .metric-sub {
-            margin-top: 0.4rem;
-            color: var(--muted);
-            font-size: 0.84rem;
-            line-height: 1.45;
-        }
-
-        .riasec-grid {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 0.8rem;
-        }
-
-        .riasec-item {
-            border: 1.5px dashed var(--border);
-            padding: 0.9rem;
-            background: rgba(255, 255, 255, 0.45);
-        }
-
-        .riasec-item strong {
-            display: block;
-            color: var(--muted);
-            font-size: 0.72rem;
-            letter-spacing: 0.14em;
-            text-transform: uppercase;
-        }
-
-        .riasec-item span {
-            display: block;
-            margin-top: 0.4rem;
-            font-size: 1.6rem;
-            font-weight: 800;
-            letter-spacing: -0.04em;
-        }
-
-        .track {
-            margin-top: 0.55rem;
-            height: 12px;
-            border: 1.5px solid var(--border);
-            background: var(--bg-2);
-        }
-
-        .fill {
-            height: 100%;
-            background: var(--accent);
-        }
-
-        .table-shell {
-            overflow: hidden;
-        }
-
-        .table-head {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 0.8rem;
-            padding: 1rem 1.1rem;
-            border-bottom: 2px solid var(--border);
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th,
-        td {
-            padding: 0.95rem 1rem;
-            border-bottom: 1.5px solid var(--border);
-            text-align: left;
-            vertical-align: top;
-            font-size: 0.93rem;
-        }
-
-        th {
-            background: var(--bg-2);
-            color: var(--muted);
-            font-size: 0.73rem;
-            letter-spacing: 0.14em;
-            text-transform: uppercase;
-        }
-
-        .muted {
-            color: var(--muted);
-        }
-
-        .empty {
-            padding: 1.5rem;
-            text-align: center;
-            color: var(--muted);
-        }
-
-        .log-shell {
-            margin-bottom: 1rem;
-        }
-
-        .log-scroll {
-            max-height: 460px;
-            overflow-y: auto;
-        }
-
-        .log-table th {
-            position: sticky;
-            top: 0;
-            z-index: 1;
-            padding: 0.6rem 1rem;
-        }
-
-        .log-table td {
-            padding: 0.6rem 1rem;
-            border-bottom: 1px solid rgba(25, 19, 14, 0.15);
-            vertical-align: middle;
-        }
-
-        .log-table tbody tr:nth-child(even) {
-            background: rgba(234, 223, 206, 0.35);
-        }
-
-        .small {
-            font-size: 0.78rem;
-        }
-
-        .nowrap {
-            white-space: nowrap;
-        }
-
-        .pill {
-            display: inline-block;
-            padding: 0.18rem 0.6rem;
-            border-radius: 999px;
-            font-size: 0.78rem;
-            font-weight: 700;
-        }
-
-        .pill.ok {
-            background: var(--success-soft);
-            color: #3d6e35;
-        }
-
-        .pill.bad {
-            background: var(--danger-soft);
-            color: var(--danger);
-        }
-
-        .chips {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.3rem;
-        }
-
-        .chip {
-            padding: 0.15rem 0.5rem;
-            border: 1px solid rgba(25, 19, 14, 0.25);
-            border-radius: 4px;
-            background: #fff;
-            font-size: 0.8rem;
-            white-space: nowrap;
-        }
-
-        @media (max-width: 1180px) {
-            .layout,
-            .metrics,
-            .meta-grid,
-            .riasec-grid {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
-
-        @media (max-width: 920px) {
-            .topbar {
-                flex-direction: column;
-            }
-
-            .layout,
-            .metrics,
-            .meta-grid,
-            .riasec-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        @media (max-width: 860px) {
-            table,
-            thead,
-            tbody,
-            tr,
-            th,
-            td {
-                display: block;
-                width: 100%;
-            }
-
-            thead {
-                display: none;
-            }
-
-            tbody {
-                display: grid;
-                gap: 1rem;
-                padding: 1rem;
-            }
-
-            tr {
-                border: 2px solid var(--border);
-                background: var(--panel);
-                box-shadow: var(--shadow);
-            }
-
-            td {
-                display: grid;
-                gap: 0.35rem;
-                padding: 0.8rem 0.95rem;
-            }
-
-            td::before {
-                content: attr(data-label);
-                color: var(--muted);
-                font-size: 0.72rem;
-                font-weight: 700;
-                text-transform: uppercase;
-                letter-spacing: 0.12em;
-            }
-        }
-
-        .pill.completed { background: var(--success-soft); color: #3d6e35; }
-        .pill.failed { background: var(--danger-soft); color: var(--danger); }
-        .pill.rejected { background: var(--warning-soft); color: #8a6220; }
-        .filter-row { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; padding: 0.6rem 1rem; border-bottom: 1px solid rgba(25, 19, 14, 0.15); }
-        .filter-btn { border: 2px solid var(--border); background: var(--panel); border-radius: 999px; padding: 0.2rem 0.75rem; font-weight: 700; font-size: 0.8rem; cursor: pointer; }
-        .filter-btn.on { background: var(--text); color: var(--panel); }
-        .sort-label { margin-left: auto; font-size: 0.82rem; font-weight: 700; display: flex; gap: 0.4rem; align-items: center; }
-        .sort-select { border: 2px solid var(--border); border-radius: 6px; padding: 0.2rem 0.4rem; background: var(--panel); }
-        .stage-bars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 0 0 1rem; }
-        .stage-bar { background: var(--panel); border: 2px solid var(--border); border-radius: 10px; padding: 0.7rem 0.9rem; box-shadow: var(--shadow); }
-        .stage-bar-head { display: flex; justify-content: space-between; margin-bottom: 0.4rem; }
-        .count-table { border-collapse: collapse; margin: 0.4rem 0 0.6rem; font-size: 0.85rem; }
-        .count-table th, .count-table td { border: 1px solid rgba(25, 19, 14, 0.2); padding: 0.3rem 0.55rem; text-align: left; }
-        .count-table th { background: var(--bg-2); }
-        .count-table.wide { width: 100%; }
-        .count-table tr.is-current td { background: var(--accent-soft); font-weight: 700; }
-        .mini-title { font-size: 0.9rem; margin: 0.6rem 0 0.2rem; }
-        .explain { margin-top: 0.8rem; border-top: 1px dashed rgba(25, 19, 14, 0.3); padding-top: 0.6rem; }
-        .explain summary { cursor: pointer; font-weight: 700; }
-        .split-bar { display: flex; height: 18px; border: 2px solid var(--border); border-radius: 999px; overflow: hidden; margin: 0.5rem 0; background: var(--bg-2); }
-        .split.ok { background: var(--success); }
-        .split.bad { background: var(--danger); }
-        .split.rej { background: var(--warning); }
-        .run-row { cursor: pointer; }
-        .run-row .caret { display: inline-block; transition: transform 0.15s; margin-right: 0.3rem; }
-        .run-row.open .caret { transform: rotate(90deg); }
-        .run-detail > td { background: var(--bg-2); padding: 0.6rem 0.8rem; }
-        .log-table.inner { width: 100%; background: var(--panel); }
-        .log-scroll.tall { max-height: 720px; }
-        @media (max-width: 920px) { .stage-bars { grid-template-columns: 1fr; } .sort-label { margin-left: 0; } }
-    </style>
-</head>
-<body>
 {% set latest_riasec = summary.latest_riasec %}
-{% set scores = [latest_riasec.r, latest_riasec.i, latest_riasec.a, latest_riasec.s, latest_riasec.e, latest_riasec.c] %}
-{% set peak = scores | max %}
+{% set peak = [latest_riasec.r, latest_riasec.i, latest_riasec.a, latest_riasec.s, latest_riasec.e, latest_riasec.c] | max %}
 {% set base = peak if peak > 0 else 1 %}
+{% set pt = summary.play_time %}
+{% set rc = progress.counts %}
 
-<div class="shell">
-    <div class="topbar">
-        <section class="panel title-panel">
-            <span class="eyebrow">Sunod / Player report</span>
-            <h1>{{ user.username }}</h1>
-        </section>
-
-        <div class="top-actions">
-            {% if can_manage_user %}
-                <a href="/admin/users" class="button">Back to players</a>
-                <a href="/admin/quest-logs?user_id={{ user.id }}" class="button accent">Quest logs</a>
-            {% endif %}
-            <form method="post" action="/admin/logout">
-                <button class="button" type="submit">Logout {{ current_user.username }}</button>
-            </form>
-        </div>
+{% block header %}
+<div class="page-head">
+    <div>
+        <div class="eyebrow">{% if can_manage_user %}<a href="/admin/users">Players</a> / {% endif %}USR-{{ "%03d"|format(user.id) }}</div>
+        <h1 class="page-title">{{ user.username }}</h1>
+        <p class="page-sub">
+            {{ summary.name or user.name or "No name" }}{% if user.email %} · {{ user.email }}{% endif %}
+            &nbsp;<span class="pill {{ summary.email_verification_state }}">{{ summary.email_verification_state }}</span>
+            {% if user.role == "admin" %}<span class="pill admin plain">admin</span>{% endif %}
+            {% if summary.approval_state == "rejected" %}<span class="pill acc-rejected">blocked</span>{% endif %}
+        </p>
     </div>
-
-    {% if notice_message %}
-        <div class="banner notice">
-            <div>{{ notice_message }}</div>
-            {% if notice_link %}
-                <div class="banner-link">
-                    <a href="{{ notice_link }}" target="_blank" rel="noopener noreferrer">{{ notice_link }}</a>
-                </div>
-            {% endif %}
-        </div>
-    {% endif %}
-    {% if error_message %}
-        <div class="banner error">{{ error_message }}</div>
-    {% endif %}
-
-    <div class="section-divider">Account</div>
-
-    <section class="panel header-panel">
-        <div class="tag-row">
-            <span class="tag">{{ user.role }}</span>
-            <span class="tag {{ summary.approval_state }}">{{ summary.approval_state }}</span>
-            <span class="tag {{ summary.email_verification_state }}">{{ summary.email_verification_state }}</span>
-        </div>
-
-        <div class="meta-grid">
-            <article class="meta-item">
-                <strong>User ID</strong>
-                <span>USR-{{ "%03d"|format(user.id) }}</span>
-            </article>
-            <article class="meta-item">
-                <strong>Name</strong>
-                <span>{{ summary.name or user.name or "No name yet" }}</span>
-            </article>
-            <article class="meta-item">
-                <strong>Birthdate</strong>
-                <span>{{ summary.birthdate or user.birthdate or "No birthdate yet" }}</span>
-            </article>
-            <article class="meta-item">
-                <strong>Gender</strong>
-                <span>{{ summary.gender or user.gender or "No gender yet" }}</span>
-            </article>
-            <article class="meta-item">
-                <strong>Email</strong>
-                <span>{{ user.email or "No email yet" }}</span>
-            </article>
-            <article class="meta-item">
-                <strong>Created</strong>
-                <span>{{ summary["created_at"] }}</span>
-            </article>
-            <article class="meta-item">
-                <strong>Last login</strong>
-                <span>{{ summary["last_login"] or "No login yet" }}</span>
-            </article>
-        </div>
-    </section>
-
-    <div class="section-divider">Access</div>
-
-    <section class="layout">
-        <article class="panel">
-            <div class="panel-body">
-                <h2 class="panel-title">Lifecycle control</h2>
-                <div class="meta-grid">
-                    <article class="meta-item">
-                        <strong>Approval state</strong>
-                        <span>{{ summary.approval_state }}</span>
-                    </article>
-                    <article class="meta-item">
-                        <strong>Approved at</strong>
-                        <span>{{ summary.approved_at or "n/a" }}</span>
-                    </article>
-                    <article class="meta-item">
-                        <strong>Verification sent</strong>
-                        <span>{{ summary.verification_sent_at or "n/a" }}</span>
-                    </article>
-                    <article class="meta-item">
-                        <strong>Verified at</strong>
-                        <span>{{ summary.verified_at or "n/a" }}</span>
-                    </article>
-                </div>
-
-                {% if summary.rejection_reason %}
-                    <p class="detail"><strong>Rejection reason:</strong> {{ summary.rejection_reason }}</p>
-                {% endif %}
-
-                {% if can_manage_user %}
-                    <div class="action-row" style="margin-top: 1rem;">
-                        {% if user.role == "admin" %}
-                            <form method="post" action="/admin/users/{{ user.id }}/make-user">
-                                <input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" />
-                                <button class="mini-button accent" type="submit">Make user</button>
-                            </form>
-                        {% else %}
-                            <form method="post" action="/admin/users/{{ user.id }}/make-admin">
-                                <input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" />
-                                <button class="mini-button accent" type="submit">Make admin</button>
-                            </form>
-                        {% endif %}
-
-                        <form method="post" action="/admin/users/{{ user.id }}/approve">
-                            <input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" />
-                            <button class="mini-button" type="submit">Approve</button>
-                        </form>
-
-                        <form method="post" action="/admin/users/{{ user.id }}/send-verification">
-                            <input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" />
-                            <button class="mini-button" type="submit">Send verify</button>
-                        </form>
-
-                        <form method="post" action="/admin/users/{{ user.id }}/resend-verification">
-                            <input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" />
-                            <button class="mini-button" type="submit">Resend link</button>
-                        </form>
-
-                        <form method="post" action="/admin/users/{{ user.id }}/mark-verified">
-                            <input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" />
-                            <button class="mini-button" type="submit">Manual verify</button>
-                        </form>
-
-                        <form method="post" action="/admin/users/{{ user.id }}/delete" onsubmit="return confirm('Delete this user and all telemetry records? This cannot be undone.');">
-                            <input type="hidden" name="redirect_to" value="/admin/users" />
-                            <button class="mini-button danger" type="submit">Delete user</button>
-                        </form>
-                    </div>
-                {% endif %}
-            </div>
-        </article>
-
-        <article class="panel">
-            <div class="panel-body">
-                <h2 class="panel-title">Admin actions</h2>
-                {% if can_manage_user %}
-                    <div class="form-grid">
-                        <form method="post" action="/admin/users/{{ user.id }}/email">
-                            <input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" />
-                            <label for="email">Set or update email</label>
-                            <input id="email" name="email" type="email" value="{{ user.email or '' }}" placeholder="player@example.com" required />
-                            <div class="action-row" style="margin-top: 0.65rem;">
-                                <button class="mini-button accent" type="submit">Save email</button>
-                            </div>
-                        </form>
-
-                        <form method="post" action="/admin/users/{{ user.id }}/reject">
-                            <input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" />
-                            <label for="rejection_reason">Reject account</label>
-                            <textarea id="rejection_reason" name="rejection_reason" placeholder="Optional reason shown in blocked login messages."></textarea>
-                            <div class="action-row" style="margin-top: 0.65rem;">
-                                <button class="mini-button danger" type="submit">Reject account</button>
-                            </div>
-                        </form>
-                    </div>
-                {% endif %}
-            </div>
-        </article>
-    </section>
-
-    <div class="section-divider">Play time</div>
-
-    {% set pt = summary.play_time %}
-    <section class="metrics">
-        <article class="metric">
-            <div class="metric-label">Total play time</div>
-            <div class="metric-value">{{ (pt.total_play_seconds // 3600)|int }}h {{ ((pt.total_play_seconds % 3600) // 60)|int }}m</div>
-            <div class="metric-sub">Active time, all launches</div>
-        </article>
-        <article class="metric">
-            <div class="metric-label">Play sessions</div>
-            <div class="metric-value">{{ pt.session_count }}</div>
-            <div class="metric-sub">App launches</div>
-        </article>
-        <article class="metric">
-            <div class="metric-label">Average session</div>
-            <div class="metric-value">{{ (pt.avg_session_seconds // 60)|int }}m</div>
-            <div class="metric-sub">Longest {{ (pt.longest_session_seconds // 60)|int }}m</div>
-        </article>
-        <article class="metric">
-            <div class="metric-label">Last played</div>
-            <div class="metric-value" style="font-size:1.1rem">{{ pt.last_played_at.strftime('%Y-%m-%d %H:%M') if pt.last_played_at else '-' }}</div>
-            <div class="metric-sub">First {{ pt.first_played_at.strftime('%Y-%m-%d') if pt.first_played_at else '-' }} (UTC)</div>
-        </article>
-    </section>
-    {% if pt.scene_seconds %}
-    <div class="metric-sub" style="margin:-0.4rem 0 1rem">
-        Time per scene:
-        {% for scene, secs in pt.scene_seconds.items() %}{{ scene }} {{ (secs // 60)|int }}m{{ ", " if not loop.last }}{% endfor %}
+    {% if can_manage_user %}
+    <div class="page-actions">
+        <a href="/admin/quest-logs?user_id={{ user.id }}" class="btn">Raw quest logs</a>
+        <a href="#account" class="btn">Account</a>
     </div>
     {% endif %}
+</div>
 
-    <div class="section-divider">Game progress</div>
+<section class="stats raised">
+    <div class="stat block-green">
+        <div class="stat-label">Game progress</div>
+        <div class="stat-value">{{ '%.0f'|format(progress.percent) }}%</div>
+        <div class="stat-sub">{{ progress.played }} of {{ progress.total }} quests</div>
+    </div>
+    <div class="stat block-yellow">
+        <div class="stat-label">Now in</div>
+        <div class="stat-value sm">{% if not progress.has_run %}Not started{% elif progress.finished %}Run finished{% else %}{{ progress.stage or "In progress" }}{% endif %}</div>
+        <div class="stat-sub">{{ "Saved " ~ progress.updated_at if progress.updated_at else "No saved run" }}</div>
+    </div>
+    <div class="stat block-purple">
+        <div class="stat-label">Latest result</div>
+        <div class="stat-value sm">{{ summary.latest_career_result if summary.latest_career_result and summary.latest_career_result not in ["N/A", "Pending Cluster Result"] else (summary.latest_cluster_label if summary.total_runs else "No result yet") }}</div>
+        <div class="stat-sub">{{ summary.latest_cluster_holland_code if summary.total_runs else "Finish a run to get one" }}</div>
+    </div>
+    <div class="stat block-pink">
+        <div class="stat-label">Finished runs</div>
+        <div class="stat-value">{{ summary.total_runs }}</div>
+        <div class="stat-sub">{{ quest_record|length }} different quests played</div>
+    </div>
+    <div class="stat block-teal">
+        <div class="stat-label">Play time</div>
+        <div class="stat-value">{{ (pt.total_play_seconds // 3600)|int }}h {{ ((pt.total_play_seconds % 3600) // 60)|int }}m</div>
+        <div class="stat-sub">{{ pt.session_count }} sessions</div>
+    </div>
+</section>
+{% endblock %}
 
-    {% set rc = progress.counts %}
-    <section class="metrics">
-        <article class="metric">
-            <div class="metric-label">Completion</div>
-            <div class="metric-value">{{ '%.0f'|format(progress.percent) }}%</div>
-            <div class="metric-sub">{{ progress.played }} of {{ progress.total }} quests played</div>
-        </article>
-        <article class="metric">
-            <div class="metric-label">Where they are</div>
-            <div class="metric-value" style="font-size:1.25rem">
-                {% if not progress.has_run %}-{% elif progress.finished %}Run finished{% else %}{{ progress.stage or "In progress" }}{% endif %}
-            </div>
-            <div class="metric-sub">{{ "Last save " ~ progress.updated_at if progress.updated_at else "No saved run" }}</div>
-        </article>
-        <article class="metric">
-            <div class="metric-label">Completed / Failed</div>
-            <div class="metric-value">{{ rc.completed }} / {{ rc.failed }}</div>
-            <div class="metric-sub">{% if rc.rejected %}{{ rc.rejected }} rejected (old "Not for me"){% else %}Every quest is played: pass or fail{% endif %}</div>
-        </article>
-        <article class="metric">
-            <div class="metric-label">Quests left</div>
-            <div class="metric-value">{{ progress.total - progress.played }}</div>
-            <div class="metric-sub">All 48 are required for the final result</div>
-        </article>
-    </section>
+{% block content %}
 
+{# ── 1. Current run ─────────────────────────────────────────────── #}
+<section class="section block-green" id="current-run">
+    {{ section_head("1", "Current run", (progress.played ~ " / 48 quests") if progress.has_run else "No run") }}
+    <div class="section-body {{ 'flush' if progress.has_run }}">
     {% if progress.has_run %}
-    <section class="stage-bars">
-        {% for st in progress.by_stage %}
-        <div class="stage-bar">
-            <div class="stage-bar-head"><strong>{{ st.stage }}</strong><span class="muted">{{ st.played }} / {{ st.total }}</span></div>
-            <div class="track"><div class="fill" style="width: {{ '%.0f'|format(st.percent) }}%;"></div></div>
+        <div class="card-pad" style="border-bottom:2px solid var(--ink)">
+            {% for st in progress.by_stage %}
+            <div class="stage-row">
+                <span class="strong">{{ st.stage }}</span>
+                <div class="bar"><span style="width: {{ '%.0f'|format(st.percent) }}%;"></span></div>
+                <span class="num small strong" style="text-align:right">{{ st.played }} / {{ st.total }}</span>
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
-    </section>
-
-    <section class="table-shell log-shell">
-        <div class="table-head">
-            <strong>Current run - every quest so far</strong>
-            <span class="muted">{{ progress.quests|length }} played</span>
+        <div class="toolbar">
+            <div class="seg" data-filter-for="run-table">
+                <button type="button" class="on" data-f="all">All<span class="n">{{ progress.quests|length }}</span></button>
+                <button type="button" data-f="completed">Completed<span class="n">{{ rc.completed }}</span></button>
+                <button type="button" data-f="failed">Failed<span class="n">{{ rc.failed }}</span></button>
+                {% if rc.rejected %}<button type="button" data-f="rejected">Rejected<span class="n">{{ rc.rejected }}</span></button>{% endif %}
+            </div>
+            <span class="helper">Score is the 1-5 answer the quest gives the model (failed = 1, completed = 2 + stars).</span>
         </div>
-        <div class="filter-row" data-filter-for="progress-table">
-            <button type="button" class="filter-btn on" data-filter="all">All ({{ progress.quests|length }})</button>
-            <button type="button" class="filter-btn" data-filter="completed">Completed ({{ rc.completed }})</button>
-            <button type="button" class="filter-btn" data-filter="failed">Failed ({{ rc.failed }})</button>
-            {% if rc.rejected %}<button type="button" class="filter-btn" data-filter="rejected">Rejected ({{ rc.rejected }})</button>{% endif %}
-        </div>
-        <div class="log-scroll">
-            <table class="log-table" id="progress-table">
-                <thead>
-                <tr><th>#</th><th>Quest</th><th>Stage</th><th>Item</th><th>Result</th><th>Stars</th><th>Score (1-5)</th><th>Time</th><th>Skills used</th></tr>
-                </thead>
+        <div class="table-wrap scroll">
+            <table class="t stack" id="run-table">
+                <thead><tr><th class="num">#</th><th>Quest</th><th>Item</th><th>Result</th><th>Stars</th><th class="num">Score</th><th class="num">Time</th><th class="num" title="Times this quest was played, all runs">Attempts</th><th>Skills used</th></tr></thead>
                 <tbody>
                 {% for q in progress.quests %}
-                    <tr data-outcome="{{ q.outcome }}">
-                        <td data-label="#">{{ q.order }}</td>
-                        <td data-label="Quest"><strong>{{ q.quest_name }}</strong>{% if q.quest_id != q.quest_name %}<div class="muted small">{{ q.quest_id }}</div>{% endif %}</td>
-                        <td data-label="Stage">{{ q.stage or "-" }}</td>
-                        <td data-label="Item">{{ q.question_code or "-" }}{% if q.letter_name %}<div class="muted small">{{ q.letter_name }}</div>{% endif %}</td>
-                        <td data-label="Result"><span class="pill {{ q.outcome }}">{{ q.outcome_label }}</span></td>
-                        <td data-label="Stars">{{ q.stars if q.outcome == 'completed' else '-' }}</td>
-                        <td data-label="Score">{{ q.item_score }}</td>
-                        <td data-label="Time">{{ q.time_spent_seconds }}s</td>
+                    <tr data-o="{{ q.outcome }}">
+                        <td data-label="#" class="num muted">{{ q.order }}</td>
+                        <td data-label="Quest"><div><div class="cell-title">{{ q.quest_name }}</div><div class="cell-sub">{{ q.stage or (q.quest_id if q.quest_id != q.quest_name else "") }}</div></div></td>
+                        <td data-label="Item"><span class="tag-row">{{ letter(q.letter) }}<span class="code">{{ q.question_code or "-" }}</span></span></td>
+                        <td data-label="Result">{{ outcome(q.outcome, q.outcome_label) }}</td>
+                        <td data-label="Stars">{% if q.outcome == "completed" %}{{ stars(q.stars) }}{% else %}<span class="muted">-</span>{% endif %}</td>
+                        <td data-label="Score" class="num strong">{{ q.item_score }}</td>
+                        <td data-label="Time" class="num">{{ q.time_spent_seconds }}s</td>
+                        <td data-label="Attempts" class="num">{{ attempts_by_quest.get(q.quest_id, 1) }}</td>
                         <td data-label="Skills used" class="small">{{ q.skills_used }}</td>
                     </tr>
                 {% endfor %}
                 </tbody>
             </table>
         </div>
-    </section>
+    {% else %}
+        <p class="muted" style="margin:0">This player has no saved run right now (never started, or reset with New Game).</p>
     {% endif %}
+    </div>
+</section>
 
-    <div class="section-divider">Performance</div>
-
-    <section class="metrics">
-        <article class="metric">
-            <div class="metric-label">Total runs</div>
-            <div class="metric-value">{{ summary.total_runs }}</div>
-            <div class="metric-sub">Finished playthroughs</div>
-        </article>
-        <article class="metric">
-            <div class="metric-label">Clear rate</div>
-            <div class="metric-value">{{ '%.0f'|format(run_counts.clear_rate if run_counts.attempted else summary.avg_clear_rate) }}%</div>
-            <div class="metric-sub">{{ run_counts.completed }} completed of {{ run_counts.attempted }} played</div>
-        </article>
-        <article class="metric">
-            <div class="metric-label">Average time</div>
-            <div class="metric-value">{{ '%.0f'|format(summary.avg_time_seconds) }}s</div>
-            <div class="metric-sub">{{ '%.1f'|format(summary.avg_stars_per_run) }} avg stars</div>
-        </article>
-        <article class="metric">
-            <div class="metric-label">Latest cluster</div>
-            <div class="metric-value">
-                {% if summary.latest_predicted_cluster is not none %}
-                    {{ summary.latest_predicted_cluster }}
-                {% else %}
-                    -
-                {% endif %}
-            </div>
-            <div class="metric-sub">{{ summary.latest_cluster_label or "Pending cluster result" }}</div>
-        </article>
-    </section>
-
-    <section class="layout">
-        <article class="panel">
-            <div class="panel-body">
-                <h2 class="panel-title">What the clear rate means</h2>
-                <p class="detail">
-                    Clear rate = quests <strong>completed</strong> &divide; quests <strong>played</strong>, across every finished run.
-                    A quest is completed when the player solves it before its 30-second timer runs out; it fails when the
-                    timer runs out or they quit in the middle of it. Faster solves keep more stars (0-3).
-                </p>
-                <table class="count-table">
-                    <tr><th>Completed</th><td>{{ run_counts.completed }}</td><th>Failed</th><td>{{ run_counts.failed }}</td><th>Rejected</th><td>{{ run_counts.rejected }}</td></tr>
-                </table>
-                <p class="detail small">"Rejected" only appears in runs from before the "Not for me" choice was removed.</p>
-                <h3 class="mini-title">Stars on completed quests</h3>
-                <table class="count-table">
-                    <tr>{% for s in [3, 2, 1, 0] %}<th>{{ s }} star{{ "" if s == 1 else "s" }}</th><td>{{ run_counts.stars[s] }}</td>{% endfor %}</tr>
-                </table>
-                <h3 class="mini-title">Score counts (the 1-5 answer each quest gives the model)</h3>
-                <table class="count-table">
-                    <tr>{% for s in [5, 4, 3, 2, 1] %}<th>{{ s }}</th><td>{{ run_counts.item_scores[s] }}</td>{% endfor %}</tr>
-                </table>
-                <p class="detail small">
-                    Each quest stands for one of the 48 Holland questionnaire items. Failed = 1 ("not interested"),
-                    completed = 2 + stars, so a 3-star solve = 5 ("very interested"). These 48 scores are what the model reads.
-                </p>
-            </div>
-        </article>
-
-        <article class="panel">
-            <div class="panel-body">
-                <h2 class="panel-title">Quests completed vs failed, all runs</h2>
-                {% set att = run_counts.attempted if run_counts.attempted else 1 %}
-                <div class="split-bar">
-                    <div class="split ok" style="width: {{ '%.1f'|format(run_counts.completed / att * 100) }}%;" title="Completed"></div>
-                    <div class="split bad" style="width: {{ '%.1f'|format(run_counts.failed / att * 100) }}%;" title="Failed"></div>
-                    <div class="split rej" style="width: {{ '%.1f'|format(run_counts.rejected / att * 100) }}%;" title="Rejected"></div>
+{# ── 2. Quest record (every quest, all runs) ────────────────────── #}
+<section class="section block-orange" id="quest-record">
+    {{ section_head("2", "Quest record", (quest_record|length) ~ " quests") }}
+    <div class="section-body flush">
+    {% if quest_record %}
+        <div class="toolbar">
+            <div class="field">
+                <span class="label">Last result</span>
+                <div class="seg" data-filter-for="record-table">
+                    <button type="button" class="on" data-f="all">All<span class="n">{{ quest_record|length }}</span></button>
+                    <button type="button" data-f="completed">Completed<span class="n">{{ record_counts.completed }}</span></button>
+                    <button type="button" data-f="failed">Failed<span class="n">{{ record_counts.failed }}</span></button>
+                    {% if record_counts.rejected %}<button type="button" data-f="rejected">Rejected<span class="n">{{ record_counts.rejected }}</span></button>{% endif %}
                 </div>
-                <p class="detail">
-                    <span class="pill completed">Completed {{ run_counts.completed }}</span>
-                    <span class="pill failed">Failed {{ run_counts.failed }}</span>
-                    {% if run_counts.rejected %}<span class="pill rejected">Rejected {{ run_counts.rejected }}</span>{% endif %}
-                </p>
-                <p class="detail small">Open a run under Run History to see how every quest in it went.</p>
             </div>
-        </article>
-    </section>
+            <div class="field">
+                <label for="record-sort">Sort</label>
+                <select id="record-sort" style="min-width:190px">
+                    <option value="attempts">Most attempts</option>
+                    <option value="failed">Most failed</option>
+                    <option value="completed">Most completed</option>
+                    <option value="name">Quest name</option>
+                    <option value="code">Item (R1 … C8)</option>
+                </select>
+            </div>
+            <span class="helper" style="margin-left:auto">Tap a quest to see every attempt.</span>
+        </div>
+        <div class="table-wrap scroll">
+            <table class="t stack" id="record-table">
+                <thead><tr><th>Quest</th><th>Item</th><th class="num">Attempts</th><th class="num">Completed</th><th class="num">Failed</th><th>Best</th><th class="num">Avg time</th><th>Last result</th></tr></thead>
+                <tbody>
+                {% for q in quest_record %}
+                    <tr class="expandable" data-o="{{ q.last_outcome }}" data-attempts="{{ q.attempts }}" data-failed="{{ q.failed }}" data-completed="{{ q.completed }}"
+                        data-name="{{ q.quest_name|lower }}" data-code="{{ q.question_code or 'Z9' }}" data-detail="rec-{{ loop.index }}">
+                        <td data-label="Quest"><div><span class="caret">▸</span> <span class="cell-title">{{ q.quest_name }}</span><div class="cell-sub" style="padding-left:18px">{{ q.stage or (q.quest_id if q.quest_id != q.quest_name else "") }}</div></div></td>
+                        <td data-label="Item"><span class="tag-row">{{ letter(q.letter) }}<span class="code">{{ q.question_code or "-" }}</span></span></td>
+                        <td data-label="Attempts" class="num strong">{{ q.attempts }}</td>
+                        <td data-label="Completed" class="num">{{ q.completed }}</td>
+                        <td data-label="Failed" class="num"><span>{{ q.failed }}{% if q.rejected %} <span class="muted small">(+{{ q.rejected }} rejected)</span>{% endif %}</span></td>
+                        <td data-label="Best">{% if q.completed %}{{ stars(q.best_stars) }}{% else %}<span class="muted">-</span>{% endif %}</td>
+                        <td data-label="Avg time" class="num">{{ q.avg_time }}s</td>
+                        <td data-label="Last result">{{ outcome(q.last_outcome, q.last_outcome_label) }}</td>
+                    </tr>
+                    <tr class="detail" id="rec-{{ loop.index }}" data-o="{{ q.last_outcome }}" hidden>
+                        <td colspan="8">
+                            <table class="t inner">
+                                <thead><tr><th>Run</th><th>When</th><th>Result</th><th>Stars</th><th class="num">Score</th><th class="num">Time</th><th>Skills used</th></tr></thead>
+                                <tbody>
+                                {% for h in q.history %}
+                                    <tr><td class="strong">{{ h.run }}</td><td class="small nowrap">{{ h.when or "-" }}</td><td>{{ outcome(h.outcome, h.outcome_label) }}</td>
+                                        <td>{% if h.outcome == "completed" %}{{ stars(h.stars) }}{% else %}<span class="muted">-</span>{% endif %}</td>
+                                        <td class="num">{{ h.item_score }}</td><td class="num">{{ h.time_spent_seconds }}s</td><td class="small">{{ h.skills_used }}</td></tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="muted card-pad" style="margin:0">No quests played yet.</p>
+    {% endif %}
+    </div>
+</section>
 
-    <div class="section-divider">Results</div>
+{# ── 3. Result ──────────────────────────────────────────────────── #}
+<section class="section block-purple" id="result">
+    {{ section_head("3", "Career result") }}
+    <div class="section-body">
+        <div class="grid grid-2">
+            <div>
+                <h3 class="sub-title">Latest result</h3>
+                {% if summary.latest_predicted_cluster is not none %}
+                    <div class="result-hero">
+                        <div>
+                            <div class="big">{{ summary.latest_cluster_label }}</div>
+                            <div class="muted">Cluster {{ summary.latest_predicted_cluster }} · Holland {{ summary.latest_cluster_holland_code }}</div>
+                        </div>
+                    </div>
+                    {% if summary.latest_cluster_example_careers %}<p class="small" style="margin:10px 0 0">Careers in this cluster: {{ summary.latest_cluster_example_careers | join(", ") }}</p>{% endif %}
+                    <p class="small muted" style="margin:6px 0 0">How it was decided: <span class="code">{{ summary.latest_cluster_source }}</span></p>
+                {% elif summary.total_runs > 0 %}
+                    <p class="muted">Waiting for the model's result.</p>
+                {% else %}
+                    <p class="muted">No finished run yet.</p>
+                {% endif %}
 
-    <section class="layout">
-        <article class="panel">
-            <div class="panel-body">
-                <h2 class="panel-title">Latest cluster output</h2>
-                <div class="tag-row">
-                    {% if summary.latest_predicted_cluster is not none %}
-                        <span class="tag verified">Cluster {{ summary.latest_predicted_cluster }}</span>
-                        <span class="tag">{{ summary.latest_cluster_label }}</span>
-                        <span class="tag">{{ summary.latest_cluster_holland_code or "N/A" }}</span>
-                    {% elif summary.total_runs > 0 %}
-                        <span class="tag pending">Pending cluster result</span>
-                    {% else %}
-                        <span class="tag missing">No runs yet</span>
+                <h3 class="sub-title" style="margin-top:20px">RIASEC profile <span class="muted small" style="text-transform:none;letter-spacing:0">(strongest = 10)</span></h3>
+                <div class="riasec">
+                    {% for key, name in [('r','Realistic'),('i','Investigative'),('a','Artistic'),('s','Social'),('e','Enterprising'),('c','Conventional')] %}
+                    {% set L = key|upper %}
+                    <div class="riasec-row {{ L }}">
+                        {{ letter(L) }}
+                        <span class="rname strong">{{ name }}</span>
+                        <div class="bar"><span style="width: {{ '%.0f'|format(latest_riasec[key] / base * 100) }}%;"></span></div>
+                        <span class="num strong" style="text-align:right">{{ latest_riasec[key] }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div>
+                <h3 class="sub-title">Cluster guide</h3>
+                <p class="small muted" style="margin:0 0 8px">The model sorts each player into one of these 8 groups. This player's is highlighted.</p>
+                <table class="t inner">
+                    <thead><tr><th class="num">#</th><th>Group</th><th>Code</th><th>Example careers</th></tr></thead>
+                    <tbody>
+                    {% for c in cluster_profiles %}
+                        <tr class="{{ 'is-current' if summary.latest_predicted_cluster == c.cluster }}">
+                            <td class="num">{{ c.cluster }}</td>
+                            <td class="strong">{{ c.label }}</td>
+                            <td><span class="tag-row" style="flex-wrap:nowrap">{% if c.is_outlier %}<span class="muted small">mixed</span>{% else %}{% for ch in c.holland_code %}{{ letter(ch) }}{% endfor %}{% endif %}</span></td>
+                            <td class="small">{{ c.careers }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
+
+{# ── 4. Performance ─────────────────────────────────────────────── #}
+<section class="section block-blue" id="performance">
+    {{ section_head("4", "Performance", "all finished runs") }}
+    <div class="section-body">
+        {% set att = run_counts.attempted if run_counts.attempted else 1 %}
+        <div class="stats">
+            <div class="stat block-blue"><div class="stat-label">Clear rate</div><div class="stat-value">{{ '%.0f'|format(run_counts.clear_rate if run_counts.attempted else summary.avg_clear_rate) }}%</div><div class="stat-sub">{{ run_counts.completed }} of {{ run_counts.attempted }} quests</div></div>
+            <div class="stat block-green"><div class="stat-label">Completed</div><div class="stat-value">{{ run_counts.completed }}</div><div class="stat-sub">Solved in time</div></div>
+            <div class="stat" style="--block: var(--bad)"><div class="stat-label">Failed</div><div class="stat-value">{{ run_counts.failed }}</div><div class="stat-sub">Timer ran out / quit</div></div>
+            {% if run_counts.rejected %}<div class="stat" style="--block:#e0a21b"><div class="stat-label">Rejected</div><div class="stat-value">{{ run_counts.rejected }}</div><div class="stat-sub">Old "Not for me"</div></div>{% endif %}
+            <div class="stat block-yellow"><div class="stat-label">Avg. per run</div><div class="stat-value sm">{{ '%.1f'|format(summary.avg_stars_per_run) }} ★</div><div class="stat-sub">{{ '%.0f'|format(summary.avg_time_seconds) }}s of quest time</div></div>
+        </div>
+        <div class="split" title="Completed / failed / rejected">
+            <span class="s-ok" style="width: {{ '%.1f'|format(run_counts.completed / att * 100) }}%"></span>
+            <span class="s-bad" style="width: {{ '%.1f'|format(run_counts.failed / att * 100) }}%"></span>
+            <span class="s-warn" style="width: {{ '%.1f'|format(run_counts.rejected / att * 100) }}%"></span>
+        </div>
+        <div class="grid grid-2">
+            <div>
+                <h3 class="sub-title">Stars on completed quests</h3>
+                <table class="t inner"><tbody>
+                {% for s in [3, 2, 1, 0] %}
+                    {% set n = run_counts.stars[s] %}
+                    <tr><td style="width:110px">{{ stars(s) }}</td><td><div class="bar thin block-yellow"><span style="width: {{ '%.0f'|format(n / (run_counts.completed or 1) * 100) }}%"></span></div></td><td class="num strong" style="width:60px">{{ n }}</td></tr>
+                {% endfor %}
+                </tbody></table>
+            </div>
+            <div>
+                <h3 class="sub-title">Score counts (1-5)</h3>
+                <table class="t inner"><tbody>
+                {% for s in [5, 4, 3, 2, 1] %}
+                    {% set n = run_counts.item_scores[s] %}
+                    <tr><td class="strong" style="width:110px">Score {{ s }}</td><td><div class="bar thin block-blue"><span style="width: {{ '%.0f'|format(n / att * 100) }}%"></span></div></td><td class="num strong" style="width:60px">{{ n }}</td></tr>
+                {% endfor %}
+                </tbody></table>
+            </div>
+        </div>
+    </div>
+</section>
+
+{# ── 5. Run history ─────────────────────────────────────────────── #}
+<section class="section block-pink" id="runs">
+    {{ section_head("5", "Run history", summary.total_runs ~ " finished") }}
+    <div class="section-body flush">
+        <div class="table-wrap scroll">
+            <table class="t stack">
+                <thead><tr><th>Run</th><th>Career result</th><th>Code</th><th>Quests</th><th class="num">Stars</th><th class="num">Time</th><th>Finished</th></tr></thead>
+                <tbody>
+                {% for run in runs %}
+                    <tr class="expandable" data-detail="run-{{ loop.index }}" title="Session {{ run.session_id }}">
+                        <td data-label="Run" class="strong"><span class="caret">▸</span> Run {{ runs|length - loop.index0 }}</td>
+                        <td data-label="Career result"><div><div class="cell-title">{{ run.career_result if run.career_result != "N/A" else (run.cluster_label or "Pending") }}</div><div class="cell-sub">{{ run.cluster_label or "" }}</div></div></td>
+                        <td data-label="Code" class="code">{{ run.cluster_holland_code or run.holland_code or "-" }}</td>
+                        <td data-label="Quests"><span>{{ run.counts.attempted }} played <span class="cell-sub">· {{ run.counts.completed }} completed · {{ run.counts.failed }} failed{% if run.counts.rejected %} · {{ run.counts.rejected }} rejected{% endif %}</span></span></td>
+                        <td data-label="Stars" class="num">{{ run.total_stars }}</td>
+                        <td data-label="Time" class="num">{{ '%.0f'|format(run.total_time_spent_seconds) }}s</td>
+                        <td data-label="Finished" class="small nowrap">{{ run.created_at }}</td>
+                    </tr>
+                    <tr class="detail" id="run-{{ loop.index }}" hidden>
+                        <td colspan="7">
+                        {% if run.quests %}
+                            <table class="t inner">
+                                <thead><tr><th class="num">#</th><th>Quest</th><th>Item</th><th>Result</th><th>Stars</th><th class="num">Score</th><th class="num">Time</th><th>Skills used</th></tr></thead>
+                                <tbody>
+                                {% for q in run.quests %}
+                                    <tr><td class="num muted">{{ q.order }}</td><td class="strong">{{ q.quest_name }}</td>
+                                        <td><span class="tag-row">{{ letter(q.letter) }}<span class="code">{{ q.question_code or "-" }}</span></span></td>
+                                        <td>{{ outcome(q.outcome, q.outcome_label) }}</td>
+                                        <td>{% if q.outcome == "completed" %}{{ stars(q.stars) }}{% else %}<span class="muted">-</span>{% endif %}</td>
+                                        <td class="num">{{ q.item_score }}</td><td class="num">{{ q.time_spent_seconds }}s</td><td class="small">{{ q.skills_used }}</td></tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <span class="muted">No quest details were saved for this run.</span>
+                        {% endif %}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="7" class="empty">No finished runs yet.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+{# ── 6. Play time ───────────────────────────────────────────────── #}
+<section class="section block-teal" id="play-time">
+    {{ section_head("6", "Play time") }}
+    <div class="section-body">
+        <div class="stats">
+            <div class="stat block-teal"><div class="stat-label">Total</div><div class="stat-value">{{ (pt.total_play_seconds // 3600)|int }}h {{ ((pt.total_play_seconds % 3600) // 60)|int }}m</div><div class="stat-sub">Active time, all launches</div></div>
+            <div class="stat block-teal"><div class="stat-label">Sessions</div><div class="stat-value">{{ pt.session_count }}</div><div class="stat-sub">App launches</div></div>
+            <div class="stat block-teal"><div class="stat-label">Average session</div><div class="stat-value">{{ (pt.avg_session_seconds // 60)|int }}m</div><div class="stat-sub">Longest {{ (pt.longest_session_seconds // 60)|int }}m</div></div>
+            <div class="stat block-teal"><div class="stat-label">Last played</div><div class="stat-value sm">{{ pt.last_played_at.strftime('%Y-%m-%d %H:%M') if pt.last_played_at else '-' }}</div><div class="stat-sub">First {{ pt.first_played_at.strftime('%Y-%m-%d') if pt.first_played_at else '-' }} (UTC)</div></div>
+        </div>
+        {% if pt.scene_seconds %}
+        <div class="tag-row">
+            <span class="label">Time per scene</span>
+            {% for scene, secs in pt.scene_seconds.items() %}<span class="pill plain">{{ scene }} · {{ (secs // 60)|int }}m</span>{% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+{# ── 7. Account ─────────────────────────────────────────────────── #}
+<section class="section block-grey" id="account">
+    {{ section_head("7", "Account") }}
+    <div class="section-body">
+        <dl class="kv">
+            <div><dt>User ID</dt><dd>USR-{{ "%03d"|format(user.id) }}</dd></div>
+            <div><dt>Name</dt><dd>{{ summary.name or user.name or "-" }}</dd></div>
+            <div><dt>Birthdate</dt><dd>{{ summary.birthdate or user.birthdate or "-" }}</dd></div>
+            <div><dt>Gender</dt><dd>{{ summary.gender or user.gender or "-" }}</dd></div>
+            <div><dt>Email</dt><dd>{{ user.email or "-" }}</dd></div>
+            <div><dt>Joined</dt><dd>{{ summary["created_at"] or "-" }}</dd></div>
+            <div><dt>Last login</dt><dd>{{ summary["last_login"] or "-" }}</dd></div>
+            <div><dt>Verification sent</dt><dd>{{ summary.verification_sent_at or "-" }}</dd></div>
+            <div><dt>Verified</dt><dd>{{ summary.verified_at or "-" }}</dd></div>
+            <div><dt>Account</dt><dd>{{ summary.approval_state }}</dd></div>
+        </dl>
+        {% if summary.rejection_reason %}<div class="flash err" style="margin-bottom:0">Blocked: {{ summary.rejection_reason }}</div>{% endif %}
+
+        {% if can_manage_user %}
+        <div class="grid grid-2">
+            <div class="card card-pad" style="box-shadow:none">
+                <h3 class="sub-title">Email &amp; verification</h3>
+                <form method="post" action="/admin/users/{{ user.id }}/email" class="field">
+                    <input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" />
+                    <label for="email">Email address</label>
+                    <div style="display:flex; gap:8px;">
+                        <input id="email" name="email" type="email" value="{{ user.email or '' }}" placeholder="player@example.com" required />
+                        <button class="btn btn-primary" type="submit">Save</button>
+                    </div>
+                </form>
+                <div class="tag-row" style="margin-top:12px">
+                    <form method="post" action="/admin/users/{{ user.id }}/send-verification" class="inline"><input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" /><button class="btn btn-sm" type="submit">Send link</button></form>
+                    <form method="post" action="/admin/users/{{ user.id }}/resend-verification" class="inline"><input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" /><button class="btn btn-sm" type="submit">Resend link</button></form>
+                    <form method="post" action="/admin/users/{{ user.id }}/mark-verified" class="inline"><input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" /><button class="btn btn-sm" type="submit">Mark verified</button></form>
+                    {% if summary.approval_state == "pending" %}
+                    <form method="post" action="/admin/users/{{ user.id }}/approve" class="inline"><input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" /><button class="btn btn-sm" type="submit">Approve</button></form>
                     {% endif %}
                 </div>
-                <p class="detail">
-                    Source: {{ summary.latest_cluster_source or summary.latest_source or "n/a" }}<br />
-                    Model version: {{ summary.latest_cluster_model_version or summary.latest_model_version or "n/a" }}<br />
-                    Career family: {{ summary.latest_cluster_label or "Pending cluster result" }}
-                </p>
-                {% if summary.latest_cluster_example_careers %}
-                    <p class="detail">Example careers: {{ summary.latest_cluster_example_careers | join(", ") }}</p>
-                {% endif %}
-
-                <details class="explain">
-                    <summary>How the clustering works</summary>
-                    <p class="detail">
-                        The model was trained on 10,000 people's answers to the 48-item Holland (RIASEC) questionnaire.
-                        <strong>K-Means</strong> grouped those people into <strong>8 clusters</strong> of people who answered alike, and a
-                        <strong>Random Forest</strong> learned to tell which cluster a new set of 48 answers belongs to. A second Random Forest
-                        inside each cluster then picks the closest career (sub-group) in it.
-                    </p>
-                    <p class="detail">
-                        In SUNOD, the 48 quests are the 48 questions: each quest's 1-5 score fills its item, and the cluster is
-                        predicted from the player's quests. Clusters 1 and 4 are "outlier" groups (people whose answers didn't fit a
-                        clear pattern) and have no careers, so a player landing there is redirected to the named cluster that best
-                        matches their scores.
-                    </p>
-                    <table class="count-table wide">
-                        <thead><tr><th>Cluster</th><th>Group</th><th>Holland code</th><th>Example careers</th></tr></thead>
-                        <tbody>
-                        {% for c in cluster_profiles %}
-                            <tr class="{{ 'is-current' if summary.latest_predicted_cluster == c.cluster else '' }}">
-                                <td>{{ c.cluster }}</td>
-                                <td>{{ c.label }}{% if c.is_outlier %} <span class="muted small">(outlier)</span>{% endif %}</td>
-                                <td>{{ c.holland_code }}{% if c.letters %}<div class="muted small">{{ c.letters }}</div>{% endif %}</td>
-                                <td>{{ c.careers }}</td>
-                            </tr>
-                        {% endfor %}
-                        </tbody>
-                    </table>
-                    <p class="detail small"><strong>Source</strong> tells how the result was reached:
-                        <em>model_rf</em> = the Random Forest on the 48 quest scores;
-                        <em>model_rf_profile_check</em> = the model's cluster didn't include the player's strongest letter, so the best named cluster that does was used;
-                        <em>model_rf_outlier_redirect</em> = the model picked an outlier cluster and the player was matched to the nearest named one;
-                        <em>holland_fallback</em> / <em>model_rf_low_coverage</em> = too few quests had real scores (under 24 of 48) for the model, so the result comes from the player's RIASEC profile instead.
-                    </p>
-                </details>
             </div>
-        </article>
-
-        <article class="panel">
-            <div class="panel-body">
-                <h2 class="panel-title">Latest RIASEC profile</h2>
-                <div class="riasec-grid">
-                    {% for key, name, blurb in [
-                        ('r', 'Realistic', 'Hands-on: building, fixing, tools, outdoors'),
-                        ('i', 'Investigative', 'Curious: studying, solving, science'),
-                        ('a', 'Artistic', 'Creative: art, music, writing, design'),
-                        ('s', 'Social', 'Helping: teaching, caring, guiding'),
-                        ('e', 'Enterprising', 'Leading: selling, persuading, managing'),
-                        ('c', 'Conventional', 'Organizing: records, numbers, order')] %}
-                    <article class="riasec-item" title="{{ blurb }}">
-                        <strong>{{ name }}</strong>
-                        <span>{{ latest_riasec[key] }}</span>
-                        <div class="track"><div class="fill" style="width: {{ '%.0f'|format(latest_riasec[key] / base * 100) }}%;"></div></div>
-                        <div class="muted small">{{ blurb }}</div>
-                    </article>
-                    {% endfor %}
+            <div class="card card-pad" style="box-shadow:none">
+                <h3 class="sub-title">Role &amp; access</h3>
+                <div class="tag-row">
+                    {% if user.role == "admin" %}
+                        <form method="post" action="/admin/users/{{ user.id }}/make-user" class="inline"><input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" /><button class="btn btn-sm" type="submit">Remove admin</button></form>
+                    {% else %}
+                        <form method="post" action="/admin/users/{{ user.id }}/make-admin" class="inline"><input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" /><button class="btn btn-sm" type="submit">Make admin</button></form>
+                    {% endif %}
                 </div>
-                <details class="explain" open>
-                    <summary>How to read this profile</summary>
-                    <p class="detail">
-                        RIASEC is Holland's model of six interest types. Every quest belongs to one type, and every skill the
-                        player uses belongs to one type too. For each type the game adds up
-                        <strong>stars earned &times; 2</strong> + <strong>quests completed &times; 3</strong> + <strong>its share of skill use &times; 5</strong>,
-                        then scales the scores so the player's strongest type = <strong>10</strong>.
-                    </p>
-                    <p class="detail">
-                        So the numbers are <em>relative</em> to the player: a 10 is their strongest interest, a 5 is about half as strong.
-                        The three highest letters make their Holland code (e.g. SIA). The bars compare the types to each other, not to other players.
-                    </p>
+                <details class="drawer" style="margin-top:12px">
+                    <summary>Block or delete</summary>
+                    <div class="drawer-body">
+                        <form method="post" action="/admin/users/{{ user.id }}/reject" class="field">
+                            <input type="hidden" name="redirect_to" value="/admin/users/{{ user.id }}" />
+                            <label for="rejection_reason">Block this account</label>
+                            <textarea id="rejection_reason" name="rejection_reason" placeholder="Reason shown when they try to log in (optional)"></textarea>
+                            <div><button class="btn btn-sm btn-danger" type="submit">Block account</button></div>
+                        </form>
+                        <form method="post" action="/admin/users/{{ user.id }}/delete" style="margin-top:12px"
+                              onsubmit="return confirm('Delete {{ user.username }} and all their records? This cannot be undone.');">
+                            <input type="hidden" name="redirect_to" value="/admin/users" />
+                            <button class="btn btn-sm btn-danger" type="submit">Delete player and all records</button>
+                        </form>
+                    </div>
                 </details>
             </div>
-        </article>
-    </section>
-
-    <div class="section-divider">Quest Logs</div>
-
-    <section class="table-shell log-shell">
-        <div class="table-head">
-            <strong>Quest attempt history</strong>
-            <span class="muted">{{ quest_attempts|length }} total{% if quest_attempts|length > 8 %} · scroll for more{% endif %}</span>
         </div>
-        <div class="filter-row" data-filter-for="attempts-table">
-            <button type="button" class="filter-btn on" data-filter="all">All ({{ quest_attempts|length }})</button>
-            <button type="button" class="filter-btn" data-filter="completed">Completed ({{ attempt_counts.completed }})</button>
-            <button type="button" class="filter-btn" data-filter="failed">Failed ({{ attempt_counts.failed }})</button>
-            <button type="button" class="filter-btn" data-filter="rejected">Rejected ({{ attempt_counts.rejected }})</button>
-            <label class="sort-label">Sort
-                <select class="sort-select" data-sort-for="attempts-table">
-                    <option value="date-desc">Newest first</option>
-                    <option value="date-asc">Oldest first</option>
-                    <option value="result">Result (completed, failed, rejected)</option>
-                    <option value="name">Quest name</option>
-                    <option value="time">Time spent</option>
-                </select>
-            </label>
-        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}
 
-        <div class="log-scroll">
-            <table class="log-table" id="attempts-table">
-                <thead>
-                <tr>
-                    <th>Quest</th>
-                    <th>Result</th>
-                    <th>Time</th>
-                    <th>Skills used</th>
-                    <th>Date</th>
-                </tr>
-                </thead>
-                <tbody>
-                {% if quest_attempts %}
-                    {% for attempt in quest_attempts %}
-                        <tr data-outcome="{{ attempt.outcome }}" data-name="{{ attempt.quest_name|lower }}" data-time="{{ attempt.time_spent_seconds }}" data-date="{{ attempt.effective_at }}" data-index="{{ loop.index0 }}">
-                            <td data-label="Quest">
-                                <strong>{{ attempt.quest_name }}</strong>
-                                {% if attempt.quest_id != attempt.quest_name %}<div class="muted small">{{ attempt.quest_id }}</div>{% endif %}
-                            </td>
-                            <td data-label="Result">
-                                <span class="pill {{ attempt.outcome }}">{{ attempt.outcome_label }}</span>
-                            </td>
-                            <td data-label="Time">{{ attempt.time_spent_seconds }}s</td>
-                            <td data-label="Skills used">
-                                {% if attempt.skills_used_summary == "No skills recorded" %}
-                                    <span class="muted">None</span>
-                                {% else %}
-                                    <div class="chips">
-                                        {% for skill in attempt.skills_used_summary.split(", ") %}<span class="chip">{{ skill }}</span>{% endfor %}
-                                    </div>
-                                {% endif %}
-                            </td>
-                            <td data-label="Date" class="muted nowrap">{{ attempt.effective_at }}</td>
-                        </tr>
-                    {% endfor %}
-                {% else %}
-                    <tr>
-                        <td colspan="5" class="empty">No quest attempts yet.</td>
-                    </tr>
-                {% endif %}
-                </tbody>
-            </table>
-        </div>
-    </section>
-
-    <div class="section-divider">Run History</div>
-
-    <section class="table-shell log-shell">
-        <div class="table-head">
-            <strong>Session run history</strong>
-            <span class="muted">{{ summary.total_runs }} total · tap a run to see every quest in it</span>
-        </div>
-
-        <div class="log-scroll tall">
-            <table class="log-table">
-                <thead>
-                <tr>
-                    <th>Career result</th>
-                    <th>Holland</th>
-                    <th>Quests</th>
-                    <th>Stars</th>
-                    <th>Time</th>
-                    <th>Date</th>
-                </tr>
-                </thead>
-                <tbody>
-                {% if runs %}
-                    {% for run in runs %}
-                        <tr class="run-row" data-run="run-{{ loop.index }}" title="Session {{ run.session_id }} · source: {{ run.cluster_source or run.source }}">
-                            <td data-label="Career result">
-                                <span class="caret">&#9656;</span>
-                                <strong>{{ run.career_result or run.cluster_label or "Pending" }}</strong>
-                                {% if run.career_result and run.cluster_label %}<div class="muted small">{{ run.cluster_label }}</div>{% endif %}
-                            </td>
-                            <td data-label="Holland">{{ run.cluster_holland_code or run.holland_code or "-" }}</td>
-                            <td data-label="Quests">
-                                {{ run.counts.attempted }} played
-                                <div class="muted small">{{ run.counts.completed }} completed · {{ run.counts.failed }} failed{% if run.counts.rejected %} · {{ run.counts.rejected }} rejected{% endif %}</div>
-                            </td>
-                            <td data-label="Stars">{{ run.total_stars }}</td>
-                            <td data-label="Time">{{ '%.0f'|format(run.total_time_spent_seconds) }}s</td>
-                            <td data-label="Date" class="muted nowrap">{{ run.created_at }}</td>
-                        </tr>
-                        <tr class="run-detail" id="run-{{ loop.index }}" hidden>
-                            <td colspan="6">
-                                {% if run.quests %}
-                                <table class="log-table inner">
-                                    <thead><tr><th>#</th><th>Quest</th><th>Item</th><th>Result</th><th>Stars</th><th>Score (1-5)</th><th>Time</th><th>Skills used</th></tr></thead>
-                                    <tbody>
-                                    {% for q in run.quests %}
-                                        <tr>
-                                            <td>{{ q.order }}</td>
-                                            <td><strong>{{ q.quest_name }}</strong>{% if q.stage %}<div class="muted small">{{ q.stage }}</div>{% endif %}</td>
-                                            <td>{{ q.question_code or (q.letter or "-") }}</td>
-                                            <td><span class="pill {{ q.outcome }}">{{ q.outcome_label }}</span></td>
-                                            <td>{{ q.stars if q.outcome == 'completed' else '-' }}</td>
-                                            <td>{{ q.item_score }}</td>
-                                            <td>{{ q.time_spent_seconds }}s</td>
-                                            <td class="small">{{ q.skills_used }}</td>
-                                        </tr>
-                                    {% endfor %}
-                                    </tbody>
-                                </table>
-                                {% else %}
-                                    <div class="muted">No quest details were saved for this run.</div>
-                                {% endif %}
-                            </td>
-                        </tr>
-                    {% endfor %}
-                {% else %}
-                    <tr>
-                        <td colspan="6" class="empty">No session runs yet.</td>
-                    </tr>
-                {% endif %}
-                </tbody>
-            </table>
-        </div>
-    </section>
-</div>
+{% block scripts %}
 <script>
 (function () {
-    // Completed / Failed / Rejected filter buttons
-    document.querySelectorAll('.filter-row').forEach(function (row) {
-        var table = document.getElementById(row.dataset.filterFor);
-        if (!table) return;
-        row.querySelectorAll('.filter-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                row.querySelectorAll('.filter-btn').forEach(function (b) { b.classList.remove('on'); });
-                btn.classList.add('on');
-                var f = btn.dataset.filter;
-                table.querySelectorAll('tbody tr[data-outcome]').forEach(function (tr) {
-                    tr.hidden = !(f === 'all' || tr.dataset.outcome === f);
-                });
+    // filter chips: show rows whose data-o matches (detail rows follow their parent)
+    document.querySelectorAll(".seg[data-filter-for]").forEach(function (seg) {
+        var table = document.getElementById(seg.dataset.filterFor);
+        seg.addEventListener("click", function (e) {
+            var b = e.target.closest("button"); if (!b) return;
+            seg.querySelectorAll("button").forEach(function (x) { x.classList.remove("on"); });
+            b.classList.add("on");
+            var f = b.dataset.f;
+            table.querySelectorAll(":scope > tbody > tr[data-o]").forEach(function (tr) {
+                var match = f === "all" || tr.dataset.o === f;
+                if (tr.classList.contains("detail")) { if (!match) tr.hidden = true; }
+                else { tr.hidden = !match; if (!match) tr.classList.remove("open"); }
             });
         });
     });
-    // Sorting for the quest attempt log
-    var order = { completed: 0, failed: 1, rejected: 2 };
-    document.querySelectorAll('.sort-select').forEach(function (sel) {
-        var table = document.getElementById(sel.dataset.sortFor);
-        if (!table) return;
-        sel.addEventListener('change', function () {
-            var body = table.querySelector('tbody');
-            var rows = Array.prototype.slice.call(body.querySelectorAll('tr[data-outcome]'));
-            var v = sel.value;
+    // expand rows
+    document.querySelectorAll("tr.expandable").forEach(function (tr) {
+        tr.addEventListener("click", function () {
+            var d = document.getElementById(tr.dataset.detail); if (!d) return;
+            d.hidden = !d.hidden; tr.classList.toggle("open", !d.hidden);
+        });
+    });
+    // quest record sort (keeps each detail row under its quest)
+    var sel = document.getElementById("record-sort");
+    if (sel) {
+        sel.addEventListener("change", function () {
+            var body = document.querySelector("#record-table > tbody");
+            var rows = Array.prototype.slice.call(body.querySelectorAll(":scope > tr.expandable"));
+            var k = sel.value;
             rows.sort(function (a, b) {
-                if (v === 'date-asc') return b.dataset.index - a.dataset.index;
-                if (v === 'result') return (order[a.dataset.outcome] - order[b.dataset.outcome]) || (a.dataset.index - b.dataset.index);
-                if (v === 'name') return a.dataset.name.localeCompare(b.dataset.name);
-                if (v === 'time') return parseFloat(b.dataset.time) - parseFloat(a.dataset.time);
-                return a.dataset.index - b.dataset.index;   // newest first (server order)
+                if (k === "name") return a.dataset.name.localeCompare(b.dataset.name);
+                if (k === "code") return a.dataset.code.localeCompare(b.dataset.code, undefined, { numeric: true });
+                return (+b.dataset[k]) - (+a.dataset[k]) || a.dataset.name.localeCompare(b.dataset.name);
             });
-            rows.forEach(function (r) { body.appendChild(r); });
+            rows.forEach(function (r) { body.appendChild(r); body.appendChild(document.getElementById(r.dataset.detail)); });
         });
-    });
-    // Run history: click a run to show its quests
-    document.querySelectorAll('.run-row').forEach(function (tr) {
-        tr.addEventListener('click', function () {
-            var d = document.getElementById(tr.dataset.run);
-            if (!d) return;
-            d.hidden = !d.hidden;
-            tr.classList.toggle('open', !d.hidden);
-        });
-    });
+        sel.dispatchEvent(new Event("change"));
+    }
 })();
 </script>
-</body>
-</html>
+{% endblock %}

@@ -431,6 +431,7 @@ ADMIN_USER_SORT_LABELS = {
     "email_verification_state": "Verification",
     "last_activity_at": "Last activity",
     "total_runs": "Runs",
+    "progress": "Game progress",
 }
 ADMIN_USER_SORT_OPTIONS = (
     ("created_at", "Registered"),
@@ -438,6 +439,7 @@ ADMIN_USER_SORT_OPTIONS = (
     ("email_verification_state", "Verification"),
     ("last_activity_at", "Last activity"),
     ("total_runs", "Runs"),
+    ("progress", "Game progress"),
 )
 
 
@@ -471,6 +473,9 @@ def _admin_user_sort_value(row: dict[str, Any], sort_by: str) -> Any:
         return row.get("last_activity_at")
     if sort_by == "total_runs":
         return int(row.get("total_runs") or 0)
+    if sort_by == "progress":
+        # Players with no saved run have no progress to compare: they go last either way.
+        return float(row["progress_percent"]) if row.get("progress_has_run") else None
     return row.get("created_at")
 
 
@@ -767,13 +772,87 @@ def _build_progress_summary(run_state: dict[str, Any] | None) -> dict[str, Any]:
         "played": played,
         "total": TOTAL_GAME_QUESTS,
         "percent": played / TOTAL_GAME_QUESTS * 100.0,
-        "stage": _STAGE_BY_SCENE.get(str(run_state.get("floor_scene") or ""), str(run_state.get("floor_scene") or "")),
+        "stage": _STAGE_BY_SCENE.get(str(run_state.get("floor_scene") or ""),
+                                     "Old corridor run" if str(run_state.get("floor_scene") or "").startswith(("Level", "Game_Scene")) else ""),
         "finished": bool(run_state.get("run_finished")),
         "updated_at": _format_admin_datetime(updated) if updated else None,
         "by_stage": by_stage,
         "counts": _outcome_counts(rows),
         "quests": rows,
     }
+
+
+def _quest_name_map(db) -> dict[str, str]:
+    """quest_id -> quest name, from every quest record the server has (finished runs and
+    saved runs in progress). Older rounds only store the id."""
+    names: dict[str, str] = {}
+    try:
+        for user in db.list_users():
+            if not user.player_id:
+                continue
+            docs = list(db.list_session_runs_for_player(user.player_id))
+            state = db.get_run_state(user.player_id)
+            if state:
+                docs.append(state)
+            for doc in docs:
+                for rec in doc.get("quest_records") or []:
+                    if isinstance(rec, dict) and rec.get("quest_id") and rec.get("quest_name"):
+                        names.setdefault(str(rec["quest_id"]), str(rec["quest_name"]))
+    except Exception:
+        LOGGER.exception("Could not build the quest name map.")
+    return names
+
+
+def _build_quest_record(runs: list[dict[str, Any]], progress: dict[str, Any]) -> list[dict[str, Any]]:
+    """Every quest the player has played, grouped by quest across all their runs: how many
+    times, how it went each time, best stars, average time, and the individual attempts.
+    `runs` are _summarize_session_run rows (newest first); the in-progress run comes from
+    the run-state (skipped once that run is finished - it's already the newest run)."""
+    sources: list[tuple[str, str | None, list[dict[str, Any]]]] = []
+    if progress.get("has_run") and not progress.get("finished"):
+        sources.append(("Current run", progress.get("updated_at"), progress.get("quests") or []))
+    total = len(runs)
+    for index, run in enumerate(runs):
+        sources.append((f"Run {total - index}", run.get("created_at"), run.get("quests") or []))
+
+    names: dict[str, str] = {}
+    for _, _, rows in sources:
+        for row in rows:
+            if row["quest_name"] and row["quest_name"] != row["quest_id"]:
+                names.setdefault(row["quest_id"], row["quest_name"])
+
+    grouped: dict[str, dict[str, Any]] = {}
+    for label, when, rows in sources:
+        for row in rows:
+            qid = row["quest_id"]
+            entry = grouped.setdefault(qid, {
+                "quest_id": qid,
+                "quest_name": names.get(qid, row["quest_name"]),
+                "question_code": row["question_code"],
+                "letter": row["letter"],
+                "stage": row["stage"],
+                "attempts": 0, "completed": 0, "failed": 0, "rejected": 0,
+                "best_stars": 0, "total_time": 0.0,
+                "last_outcome": row["outcome"], "last_outcome_label": row["outcome_label"], "last_played": when,
+                "history": [],
+            })
+            entry["question_code"] = entry["question_code"] or row["question_code"]
+            entry["letter"] = entry["letter"] or row["letter"]
+            entry["attempts"] += 1
+            entry[row["outcome"]] += 1
+            if row["outcome"] == "completed":
+                entry["best_stars"] = max(entry["best_stars"], row["stars"])
+            entry["total_time"] += row["time_spent_seconds"]
+            entry["history"].append({
+                "run": label, "when": when, "outcome": row["outcome"], "outcome_label": row["outcome_label"],
+                "stars": row["stars"], "item_score": row["item_score"],
+                "time_spent_seconds": row["time_spent_seconds"], "skills_used": row["skills_used"],
+            })
+    out = []
+    for entry in grouped.values():
+        entry["avg_time"] = round(entry["total_time"] / entry["attempts"], 1) if entry["attempts"] else 0.0
+        out.append(entry)
+    return out
 
 
 def _admin_cluster_explainer() -> list[dict[str, Any]]:
@@ -2950,6 +3029,8 @@ def admin_users_page(
         row["progress_stage"] = progress["stage"]
         row["progress_finished"] = progress["finished"]
         row["progress_has_run"] = progress["has_run"]
+    # Progress is only known now, so sort again (a no-op for the other columns).
+    users = _sort_admin_user_rows(users, sort_by=normalized_sort_by, sort_dir=normalized_sort_dir)
     return templates.TemplateResponse(
         request,
         "users.html",
@@ -3169,6 +3250,11 @@ def admin_quest_logs_page(
         date_to=date_to,
     )
     formatted_rows = _format_admin_quest_attempt_rows(quest_attempt_rows)
+    # Run rounds only carry the quest id; show the quest's name where any saved record has it.
+    names = _quest_name_map(db)
+    for row in formatted_rows:
+        if row.get("quest_name") == row.get("quest_id") and row.get("quest_id") in names:
+            row["quest_name"] = names[row["quest_id"]]
     return templates.TemplateResponse(
         request,
         "quest_logs.html",
@@ -3224,6 +3310,11 @@ def admin_user_performance_page(
         attempt_counts[row["outcome"]] += 1
     # Clear rate counts across every finished run (the in-progress run is under Progress).
     all_run_quests = [q for run in performance["runs"] for q in run["quests"]]
+    quest_record = _build_quest_record(performance["runs"], progress)
+    attempts_by_quest = {q["quest_id"]: q["attempts"] for q in quest_record}
+    record_counts = {"completed": 0, "failed": 0, "rejected": 0}
+    for q in quest_record:
+        record_counts[q["last_outcome"]] += 1
 
     latest_source = performance["latest_source"] or "No runs yet"
     pending_cluster_label = "Pending cluster result" if performance["total_runs"] > 0 else "No cluster yet"
@@ -3269,6 +3360,9 @@ def admin_user_performance_page(
             "attempt_counts": attempt_counts,
             "progress": progress,
             "run_counts": _outcome_counts(all_run_quests),
+            "quest_record": quest_record,
+            "record_counts": record_counts,
+            "attempts_by_quest": attempts_by_quest,
             "cluster_profiles": _admin_cluster_explainer(),
             "summary": summary,
             **_flash_context(request),

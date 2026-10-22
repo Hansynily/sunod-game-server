@@ -1,250 +1,87 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8" />
-    <title>Sunod Report Viewer</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="/static/fonts/outfit.css" rel="stylesheet" />
-    <style>
-        :root {
-            --bg: #f3ecdf;
-            --bg-2: #e7dbc6;
-            --panel: #fffaf1;
-            --text: #18120d;
-            --muted: #675e56;
-            --border: #18120d;
-            --accent: #d1542a;
-            --accent-soft: rgba(209, 84, 42, 0.14);
-            --shadow: 5px 5px 0 #18120d;
-        }
-        * { box-sizing: border-box; }
-        body {
-            margin: 0;
-            min-height: 100vh;
-            background:
-                radial-gradient(circle at top left, rgba(209, 84, 42, 0.13), transparent 24%),
-                linear-gradient(180deg, var(--bg), #efe3d0 100%);
-            color: var(--text);
-            font-family: "Outfit", sans-serif;
-        }
-        .shell {
-            max-width: 1380px;
-            margin: 0 auto;
-            padding: 1.25rem;
-        }
-        .panel,
-        .metric,
-        .table-shell {
-            background: var(--panel);
-            border: 2px solid var(--border);
-            box-shadow: var(--shadow);
-        }
-        .topbar {
-            display: flex;
-            justify-content: space-between;
-            gap: 1rem;
-            align-items: flex-start;
-            margin-bottom: 1rem;
-        }
-        .title-panel {
-            padding: 1.35rem 1.45rem;
-            flex: 1;
-        }
-        .eyebrow {
-            display: inline-block;
-            font-size: 0.72rem;
-            font-weight: 700;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-            color: var(--muted);
-        }
-        h1 {
-            margin: 0.65rem 0 0.45rem;
-            font-size: clamp(2.2rem, 5vw, 3.8rem);
-            letter-spacing: -0.06em;
-            line-height: 0.95;
-        }
-        .actions {
-            display: flex;
-            gap: 0.7rem;
-            flex-wrap: wrap;
-        }
-        .button {
-            border: 2px solid var(--border);
-            background: var(--panel);
-            color: var(--text);
-            font: inherit;
-            font-weight: 800;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            cursor: pointer;
-            box-shadow: var(--shadow);
-            transition: transform 0.08s ease, box-shadow 0.08s ease;
-            min-height: 44px;
-            padding: 0.8rem 1rem;
-        }
-        .button.accent {
-            background: var(--accent);
-            color: #fff;
-        }
-        .button:hover {
-            transform: translate(-2px, -2px);
-            box-shadow: 8px 8px 0 var(--border);
-        }
-        .button:active {
-            transform: translate(4px, 4px);
-            box-shadow: none;
-        }
-        .metrics {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 0.9rem;
-            margin-bottom: 1rem;
-        }
-        .metric { padding: 1rem 1.1rem; }
-        .metric-label {
-            color: var(--muted);
-            font-size: 0.74rem;
-            letter-spacing: 0.16em;
-            text-transform: uppercase;
-            font-weight: 700;
-        }
-        .metric-value {
-            margin-top: 0.55rem;
-            font-size: clamp(1.6rem, 3vw, 2.3rem);
-            letter-spacing: -0.05em;
-            font-weight: 800;
-        }
-        .metric-sub {
-            margin-top: 0.4rem;
-            color: var(--muted);
-            font-size: 0.84rem;
-            line-height: 1.45;
-        }
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-        .panel-copy {
-            padding: 1rem 1.1rem;
-            line-height: 1.6;
-        }
-        .table-shell { overflow: hidden; }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            padding: 0.95rem 1rem;
-            border-bottom: 1.5px solid var(--border);
-            text-align: left;
-            vertical-align: top;
-            font-size: 0.93rem;
-        }
-        th {
-            background: var(--bg-2);
-            color: var(--muted);
-            font-size: 0.73rem;
-            letter-spacing: 0.14em;
-            text-transform: uppercase;
-        }
-        .muted { color: var(--muted); }
-        @media (max-width: 1080px) {
-            .metrics,
-            .summary-grid {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
-        @media (max-width: 860px) {
-            .topbar {
-                flex-direction: column;
-            }
-            .metrics,
-            .summary-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
-</head>
-<body>
-<div class="shell">
-    <div class="topbar">
-        <section class="panel title-panel">
-            <span class="eyebrow">Sunod / Report viewer</span>
-            <h1>{{ run.session_id }}</h1>
-            <div class="muted">{{ user.username if user else player_id }} · {{ run.created_at }}</div>
-        </section>
-        <div class="actions">
-            <a href="/admin/reports" class="button">Back to reports</a>
-            {% if user %}
-                <a href="/admin/users/{{ user.id }}" class="button">Player page</a>
-            {% endif %}
-            <form method="post" action="/admin/logout">
-                <button class="button accent" type="submit">Logout {{ current_user.username }}</button>
-            </form>
+{% extends "_base.html" %}
+{% from "_ui.html" import section_head, stars, letter, outcome %}
+{% set nav = "reports" %}
+{% block title %}Report · {{ user.username if user else player_id }}{% endblock %}
+
+{% set sc = run.riasec_scores %}
+{% set peak = [sc.r, sc.i, sc.a, sc.s, sc.e, sc.c] | max %}
+{% set base = peak if peak > 0 else 1 %}
+
+{% block header %}
+<div class="page-head">
+    <div>
+        <div class="eyebrow"><a href="/admin/reports">Reports</a> / {{ run.created_at }}</div>
+        <h1 class="page-title">{{ user.username if user else player_id }}</h1>
+        <p class="page-sub">Session <span class="code">{{ session_id }}</span></p>
+    </div>
+    <div class="page-actions">
+        {% if user %}<a href="/admin/users/{{ user.id }}" class="btn btn-primary">Player page</a>{% endif %}
+        <a href="/admin/reports" class="btn">All reports</a>
+    </div>
+</div>
+<section class="stats raised">
+    <div class="stat block-purple"><div class="stat-label">Career result</div><div class="stat-value sm">{{ run.career_result if run.career_result != "N/A" else (run.cluster_label or "Pending") }}</div><div class="stat-sub">{{ run.cluster_label or "" }} · {{ run.cluster_holland_code or run.holland_code }}</div></div>
+    <div class="stat block-green"><div class="stat-label">Quests</div><div class="stat-value">{{ run.counts.attempted }}</div><div class="stat-sub">{{ run.counts.completed }} completed · {{ run.counts.failed }} failed</div></div>
+    <div class="stat block-yellow"><div class="stat-label">Stars</div><div class="stat-value">{{ run.total_stars }}</div><div class="stat-sub">{{ '%.0f'|format(run.total_time_spent_seconds) }}s of quest time</div></div>
+    <div class="stat block-blue"><div class="stat-label">Decided by</div><div class="stat-value sm code">{{ run.cluster_source or run.source }}</div><div class="stat-sub">Model {{ run.cluster_model_version or run.model_version }}</div></div>
+</section>
+{% endblock %}
+
+{% block content %}
+<section class="section block-purple">
+    {{ section_head("1", "Result") }}
+    <div class="section-body">
+        <div class="grid grid-2">
+            <div>
+                <h3 class="sub-title">Cluster</h3>
+                <dl class="kv">
+                    <div><dt>Cluster</dt><dd>{{ run.predicted_cluster if run.predicted_cluster is not none else "Pending" }}</dd></div>
+                    <div><dt>Group</dt><dd>{{ run.cluster_label or "Pending" }}</dd></div>
+                    <div><dt>Holland code</dt><dd>{{ run.cluster_holland_code or run.holland_code or "-" }}</dd></div>
+                    <div><dt>Careers in group</dt><dd>{{ run.cluster_example_careers|join(", ") if run.cluster_example_careers else "-" }}</dd></div>
+                </dl>
+            </div>
+            <div>
+                <h3 class="sub-title">RIASEC profile <span class="muted small" style="text-transform:none;letter-spacing:0">(strongest = 10)</span></h3>
+                <div class="riasec">
+                    {% for key, name in [('r','Realistic'),('i','Investigative'),('a','Artistic'),('s','Social'),('e','Enterprising'),('c','Conventional')] %}
+                    {% set L = key|upper %}
+                    <div class="riasec-row {{ L }}">
+                        {{ letter(L) }}<span class="rname strong">{{ name }}</span>
+                        <div class="bar"><span style="width: {{ '%.0f'|format(sc[key] / base * 100) }}%;"></span></div>
+                        <span class="num strong" style="text-align:right">{{ sc[key] }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
     </div>
+</section>
 
-    <section class="metrics">
-        <article class="metric">
-            <div class="metric-label">Result</div>
-            <div class="metric-value">{{ run.cluster_label or run.career_result }}</div>
-            <div class="metric-sub">{{ run.cluster_holland_code or run.holland_code }}</div>
-        </article>
-        <article class="metric">
-            <div class="metric-label">Career family</div>
-            <div class="metric-value">{{ run.career_family or "Pending cluster result" }}</div>
-            <div class="metric-sub">{{ run.cluster_source or run.source }}</div>
-        </article>
-        <article class="metric">
-            <div class="metric-label">Time spent</div>
-            <div class="metric-value">{{ '%.0f'|format(run.total_time_spent_seconds) }}s</div>
-            <div class="metric-sub">{{ run.rounds_cleared }}/{{ run.rounds_attempted }} cleared</div>
-        </article>
-        <article class="metric">
-            <div class="metric-label">Stars</div>
-            <div class="metric-value">{{ run.total_stars }}</div>
-            <div class="metric-sub">Model {{ run.cluster_model_version or run.model_version }}</div>
-        </article>
-    </section>
-
-    <section class="summary-grid">
-        <article class="panel panel-copy">
-            <strong>Report summary</strong><br />
-            Player ID: {{ player_id }}<br />
-            Session: {{ session_id }}<br />
-            Source: {{ run.cluster_source or run.source }}<br />
-            Model version: {{ run.cluster_model_version or run.model_version }}
-        </article>
-        <article class="panel panel-copy">
-            <strong>Cluster output</strong><br />
-            Cluster: {{ run.predicted_cluster if run.predicted_cluster is not none else "Pending" }}<br />
-            Label: {{ run.cluster_label or "Pending cluster result" }}<br />
-            Holland: {{ run.cluster_holland_code or run.holland_code or "N/A" }}<br />
-            Careers: {{ run.cluster_example_careers|join(", ") if run.cluster_example_careers else "n/a" }}
-        </article>
-    </section>
-
-    <section class="table-shell">
-        <table>
-            <thead>
-            <tr>
-                <th>RIASEC</th>
-                <th>Score</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr><td>R</td><td>{{ run.riasec_scores.r }}</td></tr>
-            <tr><td>I</td><td>{{ run.riasec_scores.i }}</td></tr>
-            <tr><td>A</td><td>{{ run.riasec_scores.a }}</td></tr>
-            <tr><td>S</td><td>{{ run.riasec_scores.s }}</td></tr>
-            <tr><td>E</td><td>{{ run.riasec_scores.e }}</td></tr>
-            <tr><td>C</td><td>{{ run.riasec_scores.c }}</td></tr>
-            </tbody>
-        </table>
-    </section>
-</div>
-</body>
-</html>
+<section class="section block-orange">
+    {{ section_head("2", "Quests in this run", run.counts.attempted ~ " played") }}
+    <div class="section-body flush">
+        <div class="table-wrap">
+            <table class="t stack">
+                <thead><tr><th class="num">#</th><th>Quest</th><th>Item</th><th>Result</th><th>Stars</th><th class="num">Score</th><th class="num">Time</th><th>Skills used</th></tr></thead>
+                <tbody>
+                {% for q in run.quests %}
+                    <tr>
+                        <td data-label="#" class="num muted">{{ q.order }}</td>
+                        <td data-label="Quest"><div><div class="cell-title">{{ q.quest_name }}</div><div class="cell-sub">{{ q.stage or (q.quest_id if q.quest_id != q.quest_name else "") }}</div></div></td>
+                        <td data-label="Item"><span class="tag-row">{{ letter(q.letter) }}<span class="code">{{ q.question_code or "-" }}</span></span></td>
+                        <td data-label="Result">{{ outcome(q.outcome, q.outcome_label) }}</td>
+                        <td data-label="Stars">{% if q.outcome == "completed" %}{{ stars(q.stars) }}{% else %}<span class="muted">-</span>{% endif %}</td>
+                        <td data-label="Score" class="num strong">{{ q.item_score }}</td>
+                        <td data-label="Time" class="num">{{ q.time_spent_seconds }}s</td>
+                        <td data-label="Skills used" class="small">{{ q.skills_used }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="8" class="empty">No quest details were saved for this run.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}
