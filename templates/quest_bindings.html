@@ -26,16 +26,15 @@
             <table class="t stack">
                 <thead><tr><th>Target</th><th>Uses</th><th>Pin a version</th></tr></thead>
                 <tbody>
-                {% for row in bindings %}
+                {% for row in bindings if "stub" not in (row.scope_id|lower) %}
                     <tr>
                         <td data-label="Target">
                             <div>
-                                <div class="cell-title">{{ row.scope_label }}</div>
+                                <div class="cell-title">{{ row.scope_label|quest_label if row.scope_type == "quest" else row.scope_label|replace("Level L", "Level ") }}</div>
                                 <div class="tag-row" style="margin-top:4px">
                                     <span class="pill plain">{{ row.scope_type }}</span>
-                                    {% if row.level_id %}<span class="pill plain">{{ row.level_id }}</span>{% endif %}
+                                    {% if row.level_id %}<span class="pill plain">{{ row.level_id|replace("_Scene", "")|replace("Level", "Level ") }}</span>{% endif %}
                                     {{ letter(row.primary_riasec) }}
-                                    <span class="cell-sub">{{ row.scope_id }}</span>
                                 </div>
                             </div>
                         </td>
@@ -43,7 +42,7 @@
                             {% if row.binding %}
                                 <div>
                                     <div class="strong">{{ row.binding.dataset_name }}</div>
-                                    <div class="muted">{{ row.binding.model_version }} · {{ row.binding_source_label }}</div>
+                                    <div class="muted">{{ row.binding_source_label }}</div>
                                     {% if row.binding_source == "level" or (row.exact_binding and row.exact_binding.dataset_id != row.binding.dataset_id) %}
                                         <div class="muted">No pin of its own - inherited from its level.</div>
                                     {% endif %}
@@ -61,7 +60,7 @@
                                     <select name="dataset_id" required>
                                         <option value="">Choose a trained version</option>
                                         {% for dataset in trained_datasets %}
-                                            <option value="{{ dataset.id }}" {% if row.binding and row.binding.dataset_id == dataset.id %}selected{% endif %}>{{ dataset.dataset_name }} ({{ dataset.model_version }})</option>
+                                            <option value="{{ dataset.id }}" {% if row.binding and row.binding.dataset_id == dataset.id %}selected{% endif %}>{{ dataset.dataset_name }}{% if dataset.trained_at %} · trained {{ dataset.trained_at }}{% endif %}</option>
                                         {% endfor %}
                                     </select>
                                     <button class="btn btn-sm btn-primary" type="submit">Pin</button>

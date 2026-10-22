@@ -16,11 +16,11 @@
     <div class="stat {{ 'block-green' if live else '' }}" {% if not live %}style="--block: var(--bad)"{% endif %}>
         <div class="stat-label">Live model</div>
         <div class="stat-value sm">{{ "Running" if live else "Not loaded" }}</div>
-        <div class="stat-sub">{{ runtime_status.active_source }} · {{ runtime_status.active_version }}</div>
+        <div class="stat-sub">{{ "The career model is loaded and answering" if live else "Results use the interest profile until a model is trained" }}</div>
     </div>
     <div class="stat block-yellow"><div class="stat-label">Datasets</div><div class="stat-value">{{ dataset_counts.total }}</div><div class="stat-sub">Uploaded CSV files</div></div>
     <div class="stat block-blue"><div class="stat-label">Trained</div><div class="stat-value">{{ dataset_counts.trained }}</div><div class="stat-sub">Finished training runs</div></div>
-    <div class="stat block-purple"><div class="stat-label">Last trained</div><div class="stat-value sm">{{ dataset_counts.latest_trained_at or "Never" }}</div><div class="stat-sub">{{ dataset_counts.latest_model_version or "-" }}</div></div>
+    <div class="stat block-purple"><div class="stat-label">Last trained</div><div class="stat-value sm">{{ dataset_counts.latest_trained_at or "Never" }}</div><div class="stat-sub">Most recent training run</div></div>
 </section>
 {% endblock %}
 
@@ -34,7 +34,6 @@
             <button class="btn btn-primary" type="submit">Upload</button>
         </form>
         <p class="helper" style="margin-bottom:0">The CSV needs the 48 answer columns <strong>R1</strong> … <strong>C8</strong> (scored 1-5) and a <strong>major</strong> column.</p>
-        {% if runtime_status.detail %}<p class="helper" style="margin:0">{{ runtime_status.detail }}</p>{% endif %}
     </div>
 </section>
 
@@ -53,8 +52,8 @@
                         <td data-label="Training result" class="small">
                             <div>
                             {% if dataset.model_version %}
-                                <div><span class="strong">{{ dataset.model_version }}</span> · cluster accuracy {{ dataset.cluster_accuracy_label }}</div>
-                                <div class="muted">{{ dataset.career_model_count_label }} career models · {{ dataset.clusters_covered_count_label }} clusters · trained {{ dataset.trained_at or "-" }}</div>
+                                <div><span class="strong">Accuracy {{ dataset.cluster_accuracy_label }}</span></div>
+                                <div class="muted">{{ dataset.clusters_covered_count_label }} groups covered · trained {{ dataset.trained_at or "-" }}</div>
                                 {% if dataset.activated_at %}<div class="muted">Went live {{ dataset.activated_at }}</div>{% endif %}
                             {% else %}
                                 <span class="muted">Not trained yet</span>

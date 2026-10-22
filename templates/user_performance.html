@@ -12,18 +12,18 @@
 {% block header %}
 <div class="page-head">
     <div>
-        <div class="eyebrow">{% if can_manage_user %}<a href="/admin/users">Players</a> / {% endif %}USR-{{ "%03d"|format(user.id) }}</div>
+        <div class="eyebrow">{% if can_manage_user %}<a href="/admin/users">Players</a>{% else %}Player{% endif %}</div>
         <h1 class="page-title">{{ user.username }}</h1>
         <p class="page-sub">
             {{ summary.name or user.name or "No name" }}{% if user.email %} · {{ user.email }}{% endif %}
-            &nbsp;<span class="pill {{ summary.email_verification_state }}">{{ summary.email_verification_state }}</span>
+            &nbsp;<span class="pill {{ summary.email_verification_state }}">{{ summary.email_verification_state|verify_label }}</span>
             {% if user.role == "admin" %}<span class="pill admin plain">admin</span>{% endif %}
             {% if summary.approval_state == "rejected" %}<span class="pill acc-rejected">blocked</span>{% endif %}
         </p>
     </div>
     {% if can_manage_user %}
     <div class="page-actions">
-        <a href="/admin/quest-logs?user_id={{ user.id }}" class="btn">Raw quest logs</a>
+        <a href="/admin/quest-logs?user_id={{ user.id }}" class="btn">All attempts</a>
         <a href="#account" class="btn">Account</a>
     </div>
     {% endif %}
@@ -81,7 +81,7 @@
                 <button type="button" data-f="failed">Failed<span class="n">{{ rc.failed }}</span></button>
                 {% if rc.rejected %}<button type="button" data-f="rejected">Rejected<span class="n">{{ rc.rejected }}</span></button>{% endif %}
             </div>
-            <span class="helper">Score is the 1-5 answer the quest gives the model (failed = 1, completed = 2 + stars).</span>
+            <span class="helper">Score is the 1-5 answer the quest gives the model: failed = 1, finished = 2 to 5 (faster = higher).</span>
         </div>
         <div class="table-wrap scroll">
             <table class="t stack" id="run-table">
@@ -90,10 +90,10 @@
                 {% for q in progress.quests %}
                     <tr data-o="{{ q.outcome }}">
                         <td data-label="#" class="num muted">{{ q.order }}</td>
-                        <td data-label="Quest"><div><div class="cell-title">{{ q.quest_name }}</div><div class="cell-sub">{{ q.stage or (q.quest_id if q.quest_id != q.quest_name else "") }}</div></div></td>
+                        <td data-label="Quest"><div><div class="cell-title">{{ q.quest_name }}</div><div class="cell-sub">{{ q.stage }}</div></div></td>
                         <td data-label="Item"><span class="tag-row">{{ letter(q.letter) }}<span class="code">{{ q.question_code or "-" }}</span></span></td>
                         <td data-label="Result">{{ outcome(q.outcome, q.outcome_label) }}</td>
-                        <td data-label="Stars">{% if q.outcome == "completed" %}{{ stars(q.stars) }}{% else %}<span class="muted">-</span>{% endif %}</td>
+                        <td data-label="Stars">{% if q.outcome == "completed" %}{{ stars(q.stars5, 5, q.stars5_estimated) }}{% else %}<span class="muted">-</span>{% endif %}</td>
                         <td data-label="Score" class="num strong">{{ q.item_score }}</td>
                         <td data-label="Time" class="num">{{ q.time_spent_seconds }}s</td>
                         <td data-label="Attempts" class="num">{{ attempts_by_quest.get(q.quest_id, 1) }}</td>
@@ -143,7 +143,7 @@
                 {% for q in quest_record %}
                     <tr class="expandable" data-o="{{ q.last_outcome }}" data-attempts="{{ q.attempts }}" data-failed="{{ q.failed }}" data-completed="{{ q.completed }}"
                         data-name="{{ q.quest_name|lower }}" data-code="{{ q.question_code or 'Z9' }}" data-detail="rec-{{ loop.index }}">
-                        <td data-label="Quest"><div><span class="caret">▸</span> <span class="cell-title">{{ q.quest_name }}</span><div class="cell-sub" style="padding-left:18px">{{ q.stage or (q.quest_id if q.quest_id != q.quest_name else "") }}</div></div></td>
+                        <td data-label="Quest"><div><span class="caret">▸</span> <span class="cell-title">{{ q.quest_name }}</span><div class="cell-sub" style="padding-left:18px">{{ q.stage }}</div></div></td>
                         <td data-label="Item"><span class="tag-row">{{ letter(q.letter) }}<span class="code">{{ q.question_code or "-" }}</span></span></td>
                         <td data-label="Attempts" class="num strong">{{ q.attempts }}</td>
                         <td data-label="Completed" class="num">{{ q.completed }}</td>
@@ -159,7 +159,7 @@
                                 <tbody>
                                 {% for h in q.history %}
                                     <tr><td class="strong">{{ h.run }}</td><td class="small nowrap">{{ h.when or "-" }}</td><td>{{ outcome(h.outcome, h.outcome_label) }}</td>
-                                        <td>{% if h.outcome == "completed" %}{{ stars(h.stars) }}{% else %}<span class="muted">-</span>{% endif %}</td>
+                                        <td>{% if h.outcome == "completed" %}{{ stars(h.stars, 5, h.stars5_estimated) }}{% else %}<span class="muted">-</span>{% endif %}</td>
                                         <td class="num">{{ h.item_score }}</td><td class="num">{{ h.time_spent_seconds }}s</td><td class="small">{{ h.skills_used }}</td></tr>
                                 {% endfor %}
                                 </tbody>
@@ -191,7 +191,7 @@
                         </div>
                     </div>
                     {% if summary.latest_cluster_example_careers %}<p class="small" style="margin:10px 0 0">Careers in this cluster: {{ summary.latest_cluster_example_careers | join(", ") }}</p>{% endif %}
-                    <p class="small muted" style="margin:6px 0 0">How it was decided: <span class="code">{{ summary.latest_cluster_source }}</span></p>
+                    <p class="small muted" style="margin:6px 0 0">Decided by: {{ summary.latest_cluster_source|source_label }}</p>
                 {% elif summary.total_runs > 0 %}
                     <p class="muted">Waiting for the model's result.</p>
                 {% else %}
@@ -253,7 +253,7 @@
             <div>
                 <h3 class="sub-title">Stars on completed quests</h3>
                 <table class="t inner"><tbody>
-                {% for s in [3, 2, 1, 0] %}
+                {% for s in [5, 4, 3, 2, 1, 0] %}
                     {% set n = run_counts.stars[s] %}
                     <tr><td style="width:110px">{{ stars(s) }}</td><td><div class="bar thin block-yellow"><span style="width: {{ '%.0f'|format(n / (run_counts.completed or 1) * 100) }}%"></span></div></td><td class="num strong" style="width:60px">{{ n }}</td></tr>
                 {% endfor %}
@@ -281,7 +281,7 @@
                 <thead><tr><th>Run</th><th>Career result</th><th>Code</th><th>Quests</th><th class="num">Stars</th><th class="num">Time</th><th>Finished</th></tr></thead>
                 <tbody>
                 {% for run in runs %}
-                    <tr class="expandable" data-detail="run-{{ loop.index }}" title="Session {{ run.session_id }}">
+                    <tr class="expandable" data-detail="run-{{ loop.index }}">
                         <td data-label="Run" class="strong"><span class="caret">▸</span> Run {{ runs|length - loop.index0 }}</td>
                         <td data-label="Career result"><div><div class="cell-title">{{ run.career_result if run.career_result != "N/A" else (run.cluster_label or "Pending") }}</div><div class="cell-sub">{{ run.cluster_label or "" }}</div></div></td>
                         <td data-label="Code" class="code">{{ run.cluster_holland_code or run.holland_code or "-" }}</td>
@@ -300,7 +300,7 @@
                                     <tr><td class="num muted">{{ q.order }}</td><td class="strong">{{ q.quest_name }}</td>
                                         <td><span class="tag-row">{{ letter(q.letter) }}<span class="code">{{ q.question_code or "-" }}</span></span></td>
                                         <td>{{ outcome(q.outcome, q.outcome_label) }}</td>
-                                        <td>{% if q.outcome == "completed" %}{{ stars(q.stars) }}{% else %}<span class="muted">-</span>{% endif %}</td>
+                                        <td>{% if q.outcome == "completed" %}{{ stars(q.stars5, 5, q.stars5_estimated) }}{% else %}<span class="muted">-</span>{% endif %}</td>
                                         <td class="num">{{ q.item_score }}</td><td class="num">{{ q.time_spent_seconds }}s</td><td class="small">{{ q.skills_used }}</td></tr>
                                 {% endfor %}
                                 </tbody>
@@ -329,12 +329,6 @@
             <div class="stat block-teal"><div class="stat-label">Average session</div><div class="stat-value">{{ (pt.avg_session_seconds // 60)|int }}m</div><div class="stat-sub">Longest {{ (pt.longest_session_seconds // 60)|int }}m</div></div>
             <div class="stat block-teal"><div class="stat-label">Last played</div><div class="stat-value sm">{{ pt.last_played_at.strftime('%Y-%m-%d %H:%M') if pt.last_played_at else '-' }}</div><div class="stat-sub">First {{ pt.first_played_at.strftime('%Y-%m-%d') if pt.first_played_at else '-' }} (UTC)</div></div>
         </div>
-        {% if pt.scene_seconds %}
-        <div class="tag-row">
-            <span class="label">Time per scene</span>
-            {% for scene, secs in pt.scene_seconds.items() %}<span class="pill plain">{{ scene }} · {{ (secs // 60)|int }}m</span>{% endfor %}
-        </div>
-        {% endif %}
     </div>
 </section>
 
@@ -343,7 +337,7 @@
     {{ section_head("7", "Account") }}
     <div class="section-body">
         <dl class="kv">
-            <div><dt>User ID</dt><dd>USR-{{ "%03d"|format(user.id) }}</dd></div>
+            <div><dt>Player no.</dt><dd>{{ user.id }}</dd></div>
             <div><dt>Name</dt><dd>{{ summary.name or user.name or "-" }}</dd></div>
             <div><dt>Birthdate</dt><dd>{{ summary.birthdate or user.birthdate or "-" }}</dd></div>
             <div><dt>Gender</dt><dd>{{ summary.gender or user.gender or "-" }}</dd></div>
@@ -352,7 +346,7 @@
             <div><dt>Last login</dt><dd>{{ summary["last_login"] or "-" }}</dd></div>
             <div><dt>Verification sent</dt><dd>{{ summary.verification_sent_at or "-" }}</dd></div>
             <div><dt>Verified</dt><dd>{{ summary.verified_at or "-" }}</dd></div>
-            <div><dt>Account</dt><dd>{{ summary.approval_state }}</dd></div>
+            <div><dt>Account</dt><dd>{{ summary.approval_state|account_label }}</dd></div>
         </dl>
         {% if summary.rejection_reason %}<div class="flash err" style="margin-bottom:0">Blocked: {{ summary.rejection_reason }}</div>{% endif %}
 

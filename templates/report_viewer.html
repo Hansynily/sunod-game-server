@@ -12,7 +12,6 @@
     <div>
         <div class="eyebrow"><a href="/admin/reports">Reports</a> / {{ run.created_at }}</div>
         <h1 class="page-title">{{ user.username if user else player_id }}</h1>
-        <p class="page-sub">Session <span class="code">{{ session_id }}</span></p>
     </div>
     <div class="page-actions">
         {% if user %}<a href="/admin/users/{{ user.id }}" class="btn btn-primary">Player page</a>{% endif %}
@@ -23,7 +22,7 @@
     <div class="stat block-purple"><div class="stat-label">Career result</div><div class="stat-value sm">{{ run.career_result if run.career_result != "N/A" else (run.cluster_label or "Pending") }}</div><div class="stat-sub">{{ run.cluster_label or "" }} · {{ run.cluster_holland_code or run.holland_code }}</div></div>
     <div class="stat block-green"><div class="stat-label">Quests</div><div class="stat-value">{{ run.counts.attempted }}</div><div class="stat-sub">{{ run.counts.completed }} completed · {{ run.counts.failed }} failed</div></div>
     <div class="stat block-yellow"><div class="stat-label">Stars</div><div class="stat-value">{{ run.total_stars }}</div><div class="stat-sub">{{ '%.0f'|format(run.total_time_spent_seconds) }}s of quest time</div></div>
-    <div class="stat block-blue"><div class="stat-label">Decided by</div><div class="stat-value sm code">{{ run.cluster_source or run.source }}</div><div class="stat-sub">Model {{ run.cluster_model_version or run.model_version }}</div></div>
+    <div class="stat block-blue"><div class="stat-label">Decided by</div><div class="stat-value sm">{{ (run.cluster_source or run.source)|source_label }}</div><div class="stat-sub">How the career was picked</div></div>
 </section>
 {% endblock %}
 
@@ -68,10 +67,10 @@
                 {% for q in run.quests %}
                     <tr>
                         <td data-label="#" class="num muted">{{ q.order }}</td>
-                        <td data-label="Quest"><div><div class="cell-title">{{ q.quest_name }}</div><div class="cell-sub">{{ q.stage or (q.quest_id if q.quest_id != q.quest_name else "") }}</div></div></td>
+                        <td data-label="Quest"><div><div class="cell-title">{{ q.quest_name }}</div><div class="cell-sub">{{ q.stage }}</div></div></td>
                         <td data-label="Item"><span class="tag-row">{{ letter(q.letter) }}<span class="code">{{ q.question_code or "-" }}</span></span></td>
                         <td data-label="Result">{{ outcome(q.outcome, q.outcome_label) }}</td>
-                        <td data-label="Stars">{% if q.outcome == "completed" %}{{ stars(q.stars) }}{% else %}<span class="muted">-</span>{% endif %}</td>
+                        <td data-label="Stars">{% if q.outcome == "completed" %}{{ stars(q.stars5, 5, q.stars5_estimated) }}{% else %}<span class="muted">-</span>{% endif %}</td>
                         <td data-label="Score" class="num strong">{{ q.item_score }}</td>
                         <td data-label="Time" class="num">{{ q.time_spent_seconds }}s</td>
                         <td data-label="Skills used" class="small">{{ q.skills_used }}</td>

@@ -96,7 +96,7 @@
                             {% if user.approval_state == "rejected" %} <span class="pill acc-rejected">blocked</span>{% endif %}
                             <div class="cell-sub">{{ user.name or "No name" }}{% if user.email %} · {{ user.email }}{% endif %}</div>
                         </div></td>
-                        <td data-label="Email"><span class="pill {{ user.email_verification_state }}">{{ user.email_verification_state }}</span></td>
+                        <td data-label="Email"><span class="pill {{ user.email_verification_state }}">{{ user.email_verification_state|verify_label }}</span></td>
                         <td data-label="Game progress" style="min-width:170px">
                             {% if user.progress_has_run %}
                                 <div class="wide">

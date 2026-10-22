@@ -31,9 +31,8 @@
     <div class="section-body flush">
         <form method="get" action="/admin/quest-logs" class="toolbar">
             {% if filters.user_id %}<input type="hidden" name="user_id" value="{{ filters.user_id }}" />{% endif %}
-            <div class="field grow"><label for="q">Search</label><input id="q" name="q" type="search" value="{{ filters.q }}" placeholder="Player, quest id or name" /></div>
-            <div class="field"><label for="quest_id">Quest</label><input id="quest_id" name="quest_id" type="text" value="{{ filters.quest_id }}" placeholder="e.g. c_r5_grinder" /></div>
-            <div class="field"><label for="result">Result</label>
+            <div class="field grow"><label for="q">Search</label><input id="q" name="q" type="search" value="{{ filters.q }}" placeholder="Player or quest name" /></div>
+                        <div class="field"><label for="result">Result</label>
                 <select id="result" name="result">
                     <option value="" {% if not filters.result %}selected{% endif %}>All</option>
                     <option value="success" {% if filters.result == "success" %}selected{% endif %}>Completed</option>
@@ -57,7 +56,7 @@
                 {% for row in quest_logs %}
                     <tr>
                         <td data-label="Player"><a href="/admin/users/{{ row.user_id }}" class="cell-title">{{ row.username }}</a></td>
-                        <td data-label="Quest"><div><div class="cell-title">{{ row.quest_name }}</div>{% if row.quest_id != row.quest_name %}<div class="cell-sub">{{ row.quest_id }}</div>{% endif %}</div></td>
+                        <td data-label="Quest"><span class="cell-title">{{ row.quest_name }}</span></td>
                         <td data-label="Result">{{ outcome(row.outcome, row.outcome_label) }}</td>
                         <td data-label="Time" class="num">{{ row.time_spent_seconds }}s</td>
                         <td data-label="Skills used" class="small">{{ "None" if row.skills_used_summary == "No skills recorded" else row.skills_used_summary }}</td>

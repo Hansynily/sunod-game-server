@@ -169,6 +169,9 @@ class ChallengeRoundTelemetryIn(BaseModel):
     primary_riasec: str = Field(..., min_length=1, max_length=1)
     solved: bool
     stars_earned: int = Field(..., ge=0, le=3)
+    # 0-5 as the quest timer shows it (-1 = sent by an older game build). Display only;
+    # scoring keeps using stars_earned.
+    stars5: int = Field(-1, ge=-1, le=5)
     retry_count: int = Field(..., ge=0)
     time_spent_seconds: float = Field(..., ge=0)
     skill_use_r: int = Field(..., ge=0)
@@ -278,6 +281,7 @@ class RunStateQuestRecord(BaseModel):
     question_code: str = Field("", max_length=3)
     completed: bool = False
     stars: int = Field(0, ge=0, le=3)
+    stars5: int = Field(-1, ge=-1, le=5)   # 0-5 as shown in the quest (display only)
     time_spent_seconds: float = Field(0.0, ge=0.0)
     skill_use_r: int = Field(0, ge=0)
     skill_use_i: int = Field(0, ge=0)

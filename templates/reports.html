@@ -18,16 +18,13 @@
     {{ section_head("1", "Finished runs", (reports|length) ~ " shown") }}
     <div class="section-body flush">
         <form method="get" action="/admin/reports" class="toolbar">
-            <div class="field grow"><label for="q">Search</label><input id="q" name="q" type="search" value="{{ filters.q }}" placeholder="Player, session or result" /></div>
+            <div class="field grow"><label for="q">Search</label><input id="q" name="q" type="search" value="{{ filters.q }}" placeholder="Player or career" /></div>
             <div class="field"><label for="source">Decided by</label>
                 <select id="source" name="source">
                     <option value="" {% if not filters.source %}selected{% endif %}>Any</option>
-                    <option value="model_rf" {% if filters.source == "model_rf" %}selected{% endif %}>Model (48 quests)</option>
-                    <option value="holland_fallback" {% if filters.source == "holland_fallback" %}selected{% endif %}>Holland fallback</option>
-                    <option value="Cluster RF + Career RF" {% if filters.source == "Cluster RF + Career RF" %}selected{% endif %}>Cluster RF + Career RF (old)</option>
-                    <option value="Runtime ML Model" {% if filters.source == "Runtime ML Model" %}selected{% endif %}>Runtime ML Model (old)</option>
-                    <option value="Cluster Model" {% if filters.source == "Cluster Model" %}selected{% endif %}>Cluster Model (old)</option>
-                    <option value="Session Telemetry" {% if filters.source == "Session Telemetry" %}selected{% endif %}>No prediction yet</option>
+                    <option value="model_rf" {% if filters.source == "model_rf" %}selected{% endif %}>Career model</option>
+                    <option value="holland_fallback" {% if filters.source == "holland_fallback" %}selected{% endif %}>Interest profile (too few quests)</option>
+                    <option value="Session Telemetry" {% if filters.source == "Session Telemetry" %}selected{% endif %}>Waiting for a result</option>
                 </select>
             </div>
             <div class="field"><label for="date_from">From</label><input id="date_from" name="date_from" type="date" value="{{ filters.date_from }}" /></div>
@@ -46,7 +43,7 @@
                         <td data-label="Player"><span class="cell-title">{{ row.username }}</span></td>
                         <td data-label="Career result"><div><div class="cell-title">{{ row.result }}</div><div class="cell-sub">{{ row.career_family }}</div></div></td>
                         <td data-label="Code" class="code">{{ row.holland_code }}</td>
-                        <td data-label="Decided by" class="small"><span class="code">{{ row.cluster_source or row.source }}</span></td>
+                        <td data-label="Decided by" class="small">{{ (row.cluster_source or row.source)|source_label }}</td>
                         <td data-label="Time" class="num">{{ '%.0f'|format(row.total_time_spent_seconds) }}s</td>
                         <td data-label="Finished" class="small nowrap">{{ row.created_at }}</td>
                         <td data-label=""><a href="/admin/reports/{{ row.player_id }}/{{ row.session_id }}" class="btn btn-sm btn-primary">Open</a></td>

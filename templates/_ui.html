@@ -8,8 +8,8 @@
 </div>
 {%- endmacro %}
 
-{% macro stars(n, total=3) -%}
-<span class="stars" aria-label="{{ n }} of {{ total }} stars">{% for i in range(total) %}{% if i < n %}★{% else %}<span class="off">★</span>{% endif %}{% endfor %}</span>
+{% macro stars(n, total=5, estimated=False) -%}
+<span class="stars" aria-label="{{ n }} of {{ total }} stars"{% if estimated %} title="Estimated: this quest was saved by an older version that kept a 3-star score"{% endif %}>{% if estimated %}<span class="off">≈</span>{% endif %}{% for i in range(total) %}{% if i < n %}★{% else %}<span class="off">★</span>{% endif %}{% endfor %}</span>
 {%- endmacro %}
 
 {% macro letter(l) -%}

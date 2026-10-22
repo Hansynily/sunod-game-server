@@ -56,6 +56,49 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 templates = Jinja2Templates(directory=str(ROOT / "templates"))
 
 
+# ── plain-language labels for the admin pages (no internal codes or ids on screen) ──
+_SOURCE_LABELS = {
+    "model_rf": "Career model",
+    "model_rf_profile_check": "Career model, matched to strongest interest",
+    "model_rf_outlier_redirect": "Career model, mixed answers matched to the closest group",
+    "model_rf_low_coverage": "Career model (few quests played)",
+    "holland_fallback": "Interest profile (too few quests for the model)",
+    "session telemetry": "Waiting for a result",
+    "cluster rf + career rf": "Career model (earlier version)",
+    "runtime ml model": "Career model (earlier version)",
+    "cluster model": "Career model (earlier version)",
+}
+_VERIFY_LABELS = {"verified": "Verified", "exempt": "Verified", "sent": "Link sent", "queued": "Not sent yet", "expired": "Link expired"}
+_ACCOUNT_LABELS = {"approved": "Active", "grandfathered": "Active", "pending": "Waiting", "rejected": "Blocked"}
+
+
+def _source_label(value: Any) -> str:
+    raw = str(value or "").strip()
+    return _SOURCE_LABELS.get(raw.lower(), _SOURCE_LABELS.get(raw, raw or "-"))
+
+
+def _quest_display_name(quest_id: Any) -> str:
+    """'L3_FallenSparrow' -> 'Fallen Sparrow', 'c_r5_grinder' -> 'Grinder'. Used only when a
+    record has no real quest name, so internal ids never show on the admin pages."""
+    raw = str(quest_id or "").strip()
+    if not raw:
+        return "Quest"
+    parts = [p for p in re.split(r"[_\-\s]+", raw) if p]
+    # drop stage / level / item prefixes like 'e', 'h', 'c', 'L3', 'r5'
+    while len(parts) > 1 and re.fullmatch(r"(?i)[a-z]|l\d+|[riasec]\d|level\d*|room", parts[0]):
+        parts.pop(0)
+    words = []
+    for p in parts:
+        words.extend(re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])|\d+", p) or [p])
+    return " ".join(w[:1].upper() + w[1:] for w in words) or raw
+
+
+templates.env.filters["source_label"] = _source_label
+templates.env.filters["verify_label"] = lambda v: _VERIFY_LABELS.get(str(v or "").lower(), str(v or "-").replace("_", " ").capitalize())
+templates.env.filters["account_label"] = lambda v: _ACCOUNT_LABELS.get(str(v or "").lower(), str(v or "-").capitalize())
+templates.env.filters["quest_label"] = _quest_display_name
+
+
 def _letter_means_from_features(features: list[float], neutral: float) -> dict[str, float]:
     """Per-letter average of the player's REAL answers in the 48-item vector (R1..R8, I1..I8,
     ... C1..C8 order), skipping the neutral padding of unplayed items. Letters with no real
@@ -343,7 +386,8 @@ def _summarize_session_run(document: dict[str, Any]) -> dict[str, Any]:
     rounds = document.get("rounds") or []
     rounds_attempted = len(rounds)
     rounds_cleared = sum(1 for round_entry in rounds if round_entry.get("solved"))
-    total_stars = sum(int(round_entry.get("stars_earned", 0) or 0) for round_entry in rounds)
+    quests = _quest_detail_rows(document.get("quest_records") or rounds)
+    total_stars = sum(q["stars5"] for q in quests)   # 5-star scale, as the player saw it
 
     return {
         "session_id": document.get("session_id", "unknown-session"),
@@ -367,7 +411,7 @@ def _summarize_session_run(document: dict[str, Any]) -> dict[str, Any]:
         "cluster_example_careers": list(document.get("cluster_example_careers") or []),
         # Detailed per-quest record of the run: names/codes when the run-state records were
         # attached at End Run, else the bare rounds (older runs).
-        "quests": (quests := _quest_detail_rows(document.get("quest_records") or rounds)),
+        "quests": quests,
         "counts": _outcome_counts(quests),
     }
 
@@ -704,6 +748,11 @@ def _quest_detail_rows(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
         quest_id = str(raw.get("quest_id") or raw.get("challenge_id") or f"quest-{index + 1}")
         completed = bool(raw.get("completed", raw.get("solved", False)))
         stars = int(raw.get("stars", raw.get("stars_earned", 0)) or 0)
+        # 5-star count as the quest showed it; older saves only kept the 0-3 score, so
+        # those are shown as the closest 5-star value and marked as estimated.
+        raw5 = raw.get("stars5")
+        stars5_known = isinstance(raw5, int) and 0 <= raw5 <= 5
+        stars5 = raw5 if stars5_known else {0: 0, 1: 2, 2: 4, 3: 5}.get(max(0, min(3, stars)), 0)
         time_spent = float(raw.get("time_spent_seconds", 0) or 0)
         uses = {d: int(raw.get(f"skill_use_{d}", 0) or 0) for d in "riasec"}
         outcome = _quest_outcome(completed, time_spent, sum(uses.values()))
@@ -712,7 +761,7 @@ def _quest_detail_rows(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             {
                 "order": index + 1,
                 "quest_id": quest_id,
-                "quest_name": str(raw.get("quest_name") or "") or quest_id,
+                "quest_name": str(raw.get("quest_name") or "") or _quest_display_name(quest_id),
                 "question_code": str(raw.get("question_code") or ""),
                 "letter": letter,
                 "letter_name": _RIASEC_NAMES.get(letter, ""),
@@ -720,10 +769,13 @@ def _quest_detail_rows(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "outcome": outcome,
                 "outcome_label": {"completed": "Completed", "failed": "Failed", "rejected": "Rejected"}[outcome],
                 "stars": stars,
+                "stars5": stars5 if completed else 0,
+                "stars5_estimated": not stars5_known,
                 # The 1-5 answer this quest gives its questionnaire item (same rule as the game).
                 "item_score": (2 + max(0, min(3, stars))) if completed else 1,
                 "time_spent_seconds": round(time_spent, 1),
-                "skills_used": ", ".join(f"{d.upper()}x{n}" for d, n in uses.items() if n > 0) or "None",
+                "skills_used": ", ".join(
+                    (_RIASEC_NAMES[d.upper()] + (f" x{n}" if n > 1 else "")) for d, n in uses.items() if n > 0) or "None",
             }
         )
     return rows
@@ -733,12 +785,12 @@ def _outcome_counts(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """Counts behind the clear rate: completed / failed / rejected, star spread and the
     1-5 item scores those quests produced."""
     counts = {"completed": 0, "failed": 0, "rejected": 0}
-    stars = {0: 0, 1: 0, 2: 0, 3: 0}
+    stars = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
     scores = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
     for row in rows:
         counts[row["outcome"]] = counts.get(row["outcome"], 0) + 1
         if row["outcome"] == "completed":
-            stars[max(0, min(3, row["stars"]))] += 1
+            stars[max(0, min(5, row["stars5"]))] += 1
         scores[max(1, min(5, row["item_score"]))] += 1
     attempted = sum(counts.values())
     return {
@@ -773,7 +825,7 @@ def _build_progress_summary(run_state: dict[str, Any] | None) -> dict[str, Any]:
         "total": TOTAL_GAME_QUESTS,
         "percent": played / TOTAL_GAME_QUESTS * 100.0,
         "stage": _STAGE_BY_SCENE.get(str(run_state.get("floor_scene") or ""),
-                                     "Old corridor run" if str(run_state.get("floor_scene") or "").startswith(("Level", "Game_Scene")) else ""),
+                                     "Earlier game version" if str(run_state.get("floor_scene") or "").startswith(("Level", "Game_Scene")) else ""),
         "finished": bool(run_state.get("run_finished")),
         "updated_at": _format_admin_datetime(updated) if updated else None,
         "by_stage": by_stage,
@@ -841,11 +893,11 @@ def _build_quest_record(runs: list[dict[str, Any]], progress: dict[str, Any]) ->
             entry["attempts"] += 1
             entry[row["outcome"]] += 1
             if row["outcome"] == "completed":
-                entry["best_stars"] = max(entry["best_stars"], row["stars"])
+                entry["best_stars"] = max(entry["best_stars"], row["stars5"])
             entry["total_time"] += row["time_spent_seconds"]
             entry["history"].append({
                 "run": label, "when": when, "outcome": row["outcome"], "outcome_label": row["outcome_label"],
-                "stars": row["stars"], "item_score": row["item_score"],
+                "stars": row["stars5"], "stars5_estimated": row["stars5_estimated"], "item_score": row["item_score"],
                 "time_spent_seconds": row["time_spent_seconds"], "skills_used": row["skills_used"],
             })
     out = []
@@ -3253,8 +3305,8 @@ def admin_quest_logs_page(
     # Run rounds only carry the quest id; show the quest's name where any saved record has it.
     names = _quest_name_map(db)
     for row in formatted_rows:
-        if row.get("quest_name") == row.get("quest_id") and row.get("quest_id") in names:
-            row["quest_name"] = names[row["quest_id"]]
+        if row.get("quest_name") == row.get("quest_id"):
+            row["quest_name"] = names.get(row.get("quest_id"), _quest_display_name(row.get("quest_id")))
     return templates.TemplateResponse(
         request,
         "quest_logs.html",
