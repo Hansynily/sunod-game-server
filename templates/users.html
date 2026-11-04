@@ -22,7 +22,6 @@
 <section class="stats raised">
     <div class="stat block-yellow"><div class="stat-label">Players</div><div class="stat-value">{{ users|length }}</div><div class="stat-sub">Registered accounts</div></div>
     <div class="stat block-green"><div class="stat-label">Verified</div><div class="stat-value">{{ st.verified }}</div><div class="stat-sub">Email confirmed</div></div>
-    <div class="stat block-blue"><div class="stat-label">Playing now</div><div class="stat-value">{{ st.playing }}</div><div class="stat-sub">Run in progress</div></div>
     <div class="stat block-purple"><div class="stat-label">Avg. progress</div><div class="stat-value">{{ '%.0f'|format(st.progress_sum / st.with_run) if st.with_run else 0 }}%</div><div class="stat-sub">Of 48 quests, players with a run</div></div>
     <div class="stat block-pink"><div class="stat-label">Finished runs</div><div class="stat-value">{{ st.finished_runs }}</div><div class="stat-sub">All players</div></div>
 </section>
