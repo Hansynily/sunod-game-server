@@ -408,13 +408,7 @@ class LoopHistoryItem(BaseModel):
     failed: int = 0
     kept_skills: list[str] = Field(default_factory=list)
     mementos: list[str] = Field(default_factory=list)
-    sparks_earned: int = 0
     finished_at: str = ""
-
-
-class LoopMementoInfo(BaseModel):
-    id: str
-    cost: int
 
 
 class LoopMetaOut(BaseModel):
@@ -424,12 +418,8 @@ class LoopMetaOut(BaseModel):
     threat: str = ""
     threats_seen: list[str] = Field(default_factory=list)
     kept_skills: list[str] = Field(default_factory=list)
-    equipped_mementos: list[str] = Field(default_factory=list)
-    owned_mementos: list[str] = Field(default_factory=list)
-    sparks: int = 0
+    owned_mementos: list[str] = Field(default_factory=list)   # keepsakes: all of them come along
     memory_slots: int = 3
-    max_equipped: int = 2
-    shop: list[LoopMementoInfo] = Field(default_factory=list)
     history: list[LoopHistoryItem] = Field(default_factory=list)
     last_owned_skills: list[str] = Field(default_factory=list)
     last_passed: list[str] = Field(default_factory=list)
@@ -439,11 +429,6 @@ class LoopMetaOut(BaseModel):
 
 class LoopBeginIn(BaseModel):
     kept_skills: list[str] = Field(default_factory=list, max_length=8)
-    equipped_mementos: list[str] = Field(default_factory=list, max_length=8)
-
-
-class LoopBuyIn(BaseModel):
-    memento_id: str = Field(..., min_length=1, max_length=40)
 
 
 class PlayerProgressOut(BaseModel):

@@ -1831,7 +1831,7 @@ def finish_my_run_state(
         except Exception:
             LOGGER.exception("Could not attach quest records to the finished run of %s.", current_user.player_id)
     db.finish_run_state(current_user.player_id)
-    # Close the loop: journal entry, Sparks, remembered skills. Never blocks the finish.
+    # Close the loop: journal entry, keepsakes, remembered skills. Never blocks the finish.
     if hasattr(db, "player_loop_meta"):
         try:
             loop_meta.complete_loop(db, current_user.player_id)
@@ -1929,10 +1929,9 @@ def _loop_meta_out(doc: dict[str, Any], message: str = "") -> schemas.LoopMetaOu
             failed=int(h.get("failed") or 0),
             kept_skills=[str(s) for s in h.get("kept_skills") or []],
             mementos=[str(m) for m in h.get("mementos") or []],
-            sparks_earned=int(h.get("sparks_earned") or 0),
             finished_at=_iso(h.get("finished_at")),
         ))
-    equipped = [str(m) for m in doc.get("equipped_mementos") or []]
+    owned = [str(m) for m in doc.get("owned_mementos") or []]
     return schemas.LoopMetaOut(
         current_loop=int(doc.get("current_loop") or 1),
         loops_completed=int(doc.get("loops_completed") or 0),
@@ -1940,19 +1939,14 @@ def _loop_meta_out(doc: dict[str, Any], message: str = "") -> schemas.LoopMetaOu
         threat=str(doc.get("threat") or ""),
         threats_seen=[str(t) for t in doc.get("threats_seen") or []],
         kept_skills=[str(s) for s in doc.get("kept_skills") or []],
-        equipped_mementos=equipped,
-        owned_mementos=[str(m) for m in doc.get("owned_mementos") or []],
-        sparks=int(doc.get("sparks") or 0),
-        memory_slots=loop_meta.memory_slots(equipped),
-        max_equipped=loop_meta.MAX_EQUIPPED,
-        shop=[schemas.LoopMementoInfo(id=k, cost=v) for k, v in loop_meta.MEMENTOS.items()],
+        owned_mementos=owned,
+        memory_slots=loop_meta.memory_slots(owned),
         history=history,
         last_owned_skills=[str(s) for s in doc.get("last_owned_skills") or []],
         last_passed=[str(q) for q in doc.get("last_passed") or []],
         last_failed=[str(q) for q in doc.get("last_failed") or []],
         message=message,
     )
-
 
 @router.get("/users/me/loop", response_model=schemas.LoopMetaOut)
 def get_my_loop(
@@ -1971,7 +1965,7 @@ def begin_my_loop(
 ):
     """Go Back: start the next loop with the chosen memories and keepsakes."""
     try:
-        doc = loop_meta.begin_loop(db, current_user.player_id, payload.kept_skills, payload.equipped_mementos)
+        doc = loop_meta.begin_loop(db, current_user.player_id, payload.kept_skills)
     except loop_meta.LoopError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     audit_log(
@@ -1981,21 +1975,8 @@ def begin_my_loop(
         loop=doc.get("current_loop"),
         threat=doc.get("threat"),
         kept_skills=",".join(doc.get("kept_skills") or []),
-        mementos=",".join(doc.get("equipped_mementos") or []),
+        mementos=",".join(doc.get("owned_mementos") or []),
     )
-    return _loop_meta_out(doc)
-
-
-@router.post("/users/me/loop/buy", response_model=schemas.LoopMetaOut)
-def buy_my_memento(
-    payload: schemas.LoopBuyIn,
-    current_user = Depends(get_current_user),
-    db: TelemetryRepository = Depends(get_db),
-):
-    try:
-        doc = loop_meta.buy_memento(db, current_user.player_id, payload.memento_id)
-    except loop_meta.LoopError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     return _loop_meta_out(doc)
 
 
@@ -2004,7 +1985,7 @@ def reset_my_loop(
     current_user = Depends(get_current_user),
     db: TelemetryRepository = Depends(get_db),
 ):
-    """New Game: forget every loop (memories, keepsakes, Sparks, journal). Finished runs
+    """New Game: forget every loop (memories, keepsakes, journal). Finished runs
     stay in session_runs for reporting."""
     doc = loop_meta.reset(db, current_user.player_id)
     audit_log("LOOP_RESET", player_id=current_user.player_id, username=current_user.username)
@@ -3554,9 +3535,7 @@ def _admin_loop_summary(db: TelemetryRepository, player_id: str | None) -> dict[
         "current_finished": bool(doc.get("current_finished")),
         "threat": str(doc.get("threat") or ""),
         "kept_skills": list(doc.get("kept_skills") or []),
-        "equipped": list(doc.get("equipped_mementos") or []),
         "owned": list(doc.get("owned_mementos") or []),
-        "sparks": int(doc.get("sparks") or 0),
         "history": [
             {**h, "finished_at": _format_admin_datetime(h.get("finished_at"))}
             for h in (doc.get("history") or [])

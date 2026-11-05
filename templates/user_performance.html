@@ -328,7 +328,7 @@
             <div class="stat block-purple"><div class="stat-label">Loops finished</div><div class="stat-value">{{ loops.loops_completed }}</div><div class="stat-sub">Loop 1 is the baseline run</div></div>
             <div class="stat block-purple"><div class="stat-label">This loop's threat</div><div class="stat-value sm">{{ loops.threat|capitalize or "-" }}</div><div class="stat-sub">Story only</div></div>
             <div class="stat block-purple"><div class="stat-label">Remembered skills</div><div class="stat-value sm">{{ loops.kept_skills|join(", ") or "None" }}</div><div class="stat-sub">Start in their kind's slot</div></div>
-            <div class="stat block-purple"><div class="stat-label">Keepsakes</div><div class="stat-value sm">{{ loops.equipped|join(", ") or "None" }}</div><div class="stat-sub">{{ loops.sparks }} Sparks · owns {{ loops.owned|length }}</div></div>
+            <div class="stat block-purple"><div class="stat-label">Keepsakes</div><div class="stat-value sm">{{ loops.owned|join(", ") or "None" }}</div><div class="stat-sub">Gifts from townsfolk, kept every loop</div></div>
         </div>
         {% if loops.history %}
         <div class="table-wrap scroll">
