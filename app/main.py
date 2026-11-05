@@ -4,6 +4,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.database import close_db, init_db
@@ -55,6 +56,11 @@ def create_app() -> FastAPI:
     application.include_router(telemetry.public_router)
     application.include_router(telemetry.admin_router)
     application.include_router(telemetry.admin_ui_router)
+
+    # The game's "SUNOD website" link opens the bare server address: send it to the site.
+    @application.get("/", include_in_schema=False)
+    def site_root():
+        return RedirectResponse(url="/admin", status_code=307)
 
     return application
 
