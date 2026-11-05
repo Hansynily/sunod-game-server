@@ -1929,6 +1929,7 @@ def _loop_meta_out(doc: dict[str, Any], message: str = "") -> schemas.LoopMetaOu
             failed=int(h.get("failed") or 0),
             kept_skills=[str(s) for s in h.get("kept_skills") or []],
             mementos=[str(m) for m in h.get("mementos") or []],
+            stars_earned=int(h.get("stars_earned") or 0),
             finished_at=_iso(h.get("finished_at")),
         ))
     owned = [str(m) for m in doc.get("owned_mementos") or []]
@@ -1939,7 +1940,10 @@ def _loop_meta_out(doc: dict[str, Any], message: str = "") -> schemas.LoopMetaOu
         threat=str(doc.get("threat") or ""),
         threats_seen=[str(t) for t in doc.get("threats_seen") or []],
         kept_skills=[str(s) for s in doc.get("kept_skills") or []],
+        unlocked_mementos=[str(m) for m in doc.get("unlocked_mementos") or []],
         owned_mementos=owned,
+        stars=int(doc.get("stars") or 0),
+        shop=[schemas.LoopShopItem(id=k, cost=v[1]) for k, v in loop_meta.MEMENTOS.items()],
         memory_slots=loop_meta.memory_slots(owned),
         history=history,
         last_owned_skills=[str(s) for s in doc.get("last_owned_skills") or []],
@@ -1977,6 +1981,20 @@ def begin_my_loop(
         kept_skills=",".join(doc.get("kept_skills") or []),
         mementos=",".join(doc.get("owned_mementos") or []),
     )
+    return _loop_meta_out(doc)
+
+
+@router.post("/users/me/loop/buy", response_model=schemas.LoopMetaOut)
+def buy_my_memento(
+    payload: schemas.LoopBuyIn,
+    current_user = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    """Keepsake shop: buy an unlocked keepsake with banked stars."""
+    try:
+        doc = loop_meta.buy_memento(db, current_user.player_id, payload.memento_id)
+    except loop_meta.LoopError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     return _loop_meta_out(doc)
 
 
@@ -3536,6 +3554,7 @@ def _admin_loop_summary(db: TelemetryRepository, player_id: str | None) -> dict[
         "threat": str(doc.get("threat") or ""),
         "kept_skills": list(doc.get("kept_skills") or []),
         "owned": list(doc.get("owned_mementos") or []),
+        "stars": int(doc.get("stars") or 0),
         "history": [
             {**h, "finished_at": _format_admin_datetime(h.get("finished_at"))}
             for h in (doc.get("history") or [])

@@ -408,7 +408,13 @@ class LoopHistoryItem(BaseModel):
     failed: int = 0
     kept_skills: list[str] = Field(default_factory=list)
     mementos: list[str] = Field(default_factory=list)
+    stars_earned: int = 0
     finished_at: str = ""
+
+
+class LoopShopItem(BaseModel):
+    id: str
+    cost: int
 
 
 class LoopMetaOut(BaseModel):
@@ -418,7 +424,10 @@ class LoopMetaOut(BaseModel):
     threat: str = ""
     threats_seen: list[str] = Field(default_factory=list)
     kept_skills: list[str] = Field(default_factory=list)
-    owned_mementos: list[str] = Field(default_factory=list)   # keepsakes: all of them come along
+    unlocked_mementos: list[str] = Field(default_factory=list)   # in the shop, can be bought
+    owned_mementos: list[str] = Field(default_factory=list)      # bought: all of them come along
+    stars: int = 0                                               # banked stars to spend
+    shop: list[LoopShopItem] = Field(default_factory=list)
     memory_slots: int = 3
     history: list[LoopHistoryItem] = Field(default_factory=list)
     last_owned_skills: list[str] = Field(default_factory=list)
@@ -429,6 +438,10 @@ class LoopMetaOut(BaseModel):
 
 class LoopBeginIn(BaseModel):
     kept_skills: list[str] = Field(default_factory=list, max_length=8)
+
+
+class LoopBuyIn(BaseModel):
+    memento_id: str = Field(..., min_length=1, max_length=40)
 
 
 class PlayerProgressOut(BaseModel):

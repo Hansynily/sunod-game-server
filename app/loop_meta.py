@@ -6,9 +6,10 @@ keeps:
 
 - remembered skills: chosen inside the going-back cutscene from the skills they owned at
   the end of the last loop; they start the next loop already in their kind's slot,
-- keepsakes: gifts from six townspeople, given the first time the player passes that
-  person's quest. Once given, a keepsake stays with the player in every later loop. They
-  only change things around town (never the quest timer, stars or scoring),
+- keepsakes: six of them, one per townsperson below. Passing that person's quest unlocks
+  it in the shop; it's bought with stars (every loop's stars go into a bank when the loop
+  ends). Bought keepsakes stay for every later loop. They only change things around town
+  (never the quest timer, stars or scoring),
 - a journal of every loop: the threat that came, the Holland code and career it ended on.
 
 Each loop also rolls a threat (typhoon, flood, earthquake, fire) - story only.
@@ -26,15 +27,16 @@ from typing import Any
 
 THREATS = ["typhoon", "flood", "earthquake", "fire"]
 
-# keepsake id -> question code of the quest whose giver hands it over (one per RIASEC kind,
-# across all three towns). Effects live in the game; none touch the timer, stars or scoring.
+# keepsake id -> (question code of the quest that unlocks it, price in stars). One per
+# RIASEC kind, across all three towns. Effects live in the game; none touch the timer,
+# stars or scoring. A full run earns up to 240 stars (48 quests x 5).
 MEMENTOS = {
-    "compass": "I6",    # Nico (Elementary): the hint arrow shows up after a few seconds
-    "ribbon": "A6",     # Paolo (Elementary): the nightly skill pick offers your least-used kind
-    "sneakers": "E2",   # Jun (Elementary): walk faster around town (not inside quests)
-    "lantern": "S8",    # Lola Ising (High School): your home starts one step rebuilt
-    "locket": "C5",     # Aling Nena (High School): remember 4 skills instead of 3
-    "whistle": "R5",    # Mang Erning (College): one more person asks for help each morning
+    "compass": ("I6", 40),    # Nico (Elementary): the hint arrow shows up faster
+    "ribbon": ("A6", 50),     # Paolo (Elementary): +1 skill pick in each new town
+    "sneakers": ("E2", 40),   # Jun (Elementary): walk faster in town
+    "lantern": ("S8", 60),    # Lola Ising (High School): +1 skill pick each night
+    "locket": ("C5", 70),     # Aling Nena (High School): remember 4 skills
+    "whistle": ("R5", 50),    # Mang Erning (College): +1 request each morning
 }
 BASE_MEMORY_SLOTS = 3
 
@@ -47,10 +49,23 @@ def memory_slots(owned: list[str]) -> int:
     return BASE_MEMORY_SLOTS + (1 if "locket" in (owned or []) else 0)
 
 
-def gifts_from_records(records: list[dict[str, Any]]) -> list[str]:
-    """Keepsakes earned by the passed quests in these run records."""
+def unlocks_from_records(records: list[dict[str, Any]]) -> list[str]:
+    """Keepsakes unlocked by the passed quests in these run records."""
     passed = {str(r.get("question_code") or "").upper() for r in records or [] if r.get("completed")}
-    return [m for m, code in MEMENTOS.items() if code in passed]
+    return [m for m, (code, _) in MEMENTOS.items() if code in passed]
+
+
+def stars_from_records(records: list[dict[str, Any]]) -> int:
+    """Stars the player saw (0-5 per passed quest) across these run records."""
+    total = 0
+    for r in records or []:
+        if not r.get("completed"):
+            continue
+        s5 = r.get("stars5")
+        if s5 is None or int(s5) < 0:
+            s5 = round(int(r.get("stars") or 0) * 5 / 3)
+        total += max(0, int(s5))
+    return total
 
 
 def _roll_threat(previous: str | None, seen: list[str]) -> str:
@@ -69,7 +84,9 @@ def _new_doc(player_id: str) -> dict[str, Any]:
         "threat": _roll_threat(None, []),
         "threats_seen": [],
         "kept_skills": [],
+        "unlocked_mementos": [],
         "owned_mementos": [],
+        "stars": 0,
         "history": [],
         "last_owned_skills": [],
         "last_passed": [],
@@ -95,25 +112,25 @@ def reset(repo, player_id: str) -> dict[str, Any]:
     return get(repo, player_id)
 
 
-def _keep_gifts(repo, player_id: str, gifts: list[str]) -> None:
-    if gifts:
+def _unlock(repo, player_id: str, ids: list[str]) -> None:
+    if ids:
         repo.player_loop_meta.update_one(
             {"player_id": player_id},
-            {"$addToSet": {"owned_mementos": {"$each": gifts}}, "$set": {"updated_at": datetime.utcnow()}},
+            {"$addToSet": {"unlocked_mementos": {"$each": ids}}, "$set": {"updated_at": datetime.utcnow()}},
         )
 
 
 def sync_with_run_state(repo, player_id: str) -> dict[str, Any]:
-    """The loop record, up to date with the current run: keepsakes given so far this loop
+    """The loop record, up to date with the current run: keepsakes unlocked so far this loop
     are kept (so Continue on any device still has them), and the loop is closed if the run
     is already finished (runs finished before loops existed, or a finish whose loop update
     didn't land)."""
     doc = get(repo, player_id)
     state = repo.get_run_state(player_id)
     if state and not doc.get("current_finished"):
-        new_gifts = [g for g in gifts_from_records(state.get("quest_records") or []) if g not in (doc.get("owned_mementos") or [])]
-        if new_gifts:
-            _keep_gifts(repo, player_id, new_gifts)
+        new = [m for m in unlocks_from_records(state.get("quest_records") or []) if m not in (doc.get("unlocked_mementos") or [])]
+        if new:
+            _unlock(repo, player_id, new)
             doc = get(repo, player_id)
         if state.get("run_finished"):
             doc = complete_loop(repo, player_id)
@@ -121,7 +138,7 @@ def sync_with_run_state(repo, player_id: str) -> dict[str, Any]:
 
 
 def complete_loop(repo, player_id: str) -> dict[str, Any]:
-    """End of a run: write the loop into the journal, keep the keepsakes given this loop,
+    """End of a run: write the loop into the journal, bank its stars, keep the unlocks,
     remember what the player had. Safe to call twice - the second call changes nothing."""
     doc = get(repo, player_id)
     if doc.get("current_finished"):
@@ -131,11 +148,11 @@ def complete_loop(repo, player_id: str) -> dict[str, Any]:
     records = state.get("quest_records") or []
     passed = sorted({str(r.get("quest_id")) for r in records if r.get("completed") and r.get("quest_id")})
     failed = sorted({str(r.get("quest_id")) for r in records if not r.get("completed") and r.get("quest_id")} - set(passed))
-    _keep_gifts(repo, player_id, gifts_from_records(records))
+    _unlock(repo, player_id, unlocks_from_records(records))
+    earned = stars_from_records(records)
     doc = get(repo, player_id)
 
     latest = repo.find_latest_run_for_player(player_id) or {}
-    owned = list(doc.get("owned_mementos") or [])
     loop_no = int(doc.get("current_loop") or 1)
     threat = doc.get("threat") or ""
     now = datetime.utcnow()
@@ -149,6 +166,7 @@ def complete_loop(repo, player_id: str) -> dict[str, Any]:
         "failed": len(failed),
         "kept_skills": list(doc.get("kept_skills") or []),
         "mementos": list(doc.get("loop_start_mementos") or []),
+        "stars_earned": earned,
         "finished_at": now,
     }
 
@@ -168,6 +186,7 @@ def complete_loop(repo, player_id: str) -> dict[str, Any]:
                 "last_failed": failed,
                 "updated_at": now,
             },
+            "$inc": {"stars": earned},
             "$push": {"history": entry},
         },
     )
@@ -183,6 +202,27 @@ def complete_loop(repo, player_id: str) -> dict[str, Any]:
                 "mementos": entry["mementos"],
             }},
         )
+    return get(repo, player_id)
+
+
+def buy_memento(repo, player_id: str, memento_id: str) -> dict[str, Any]:
+    """Shop: buy an unlocked keepsake with banked stars."""
+    if memento_id not in MEMENTOS:
+        raise LoopError("Unknown keepsake.")
+    doc = sync_with_run_state(repo, player_id)
+    if memento_id in (doc.get("owned_mementos") or []):
+        return doc
+    if memento_id not in (doc.get("unlocked_mementos") or []):
+        raise LoopError("Locked.")
+    cost = MEMENTOS[memento_id][1]
+    # Atomic: only spends if the stars are there.
+    result = repo.player_loop_meta.update_one(
+        {"player_id": player_id, "stars": {"$gte": cost}},
+        {"$inc": {"stars": -cost}, "$addToSet": {"owned_mementos": memento_id},
+         "$set": {"updated_at": datetime.utcnow()}},
+    )
+    if result.matched_count == 0:
+        raise LoopError("Not enough stars.")
     return get(repo, player_id)
 
 
