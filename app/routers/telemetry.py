@@ -21,6 +21,7 @@ from app import (
     cluster_mapping,
     cluster_runtime,
     feature_pipeline,
+    loop_meta,
     mailer,
     model_training,
     schemas,
@@ -413,6 +414,12 @@ def _summarize_session_run(document: dict[str, Any]) -> dict[str, Any]:
         # attached at End Run, else the bare rounds (older runs).
         "quests": quests,
         "counts": _outcome_counts(quests),
+        # Loops (app/loop_meta.py): 0 = finished before loops existed. Later loops carry
+        # remembered skills / keepsakes, so analysis can keep loop 1 as the baseline.
+        "loop": int(document.get("loop") or 0),
+        "threat": str(document.get("threat") or ""),
+        "kept_skills": list(document.get("kept_skills") or []),
+        "mementos": list(document.get("mementos") or []),
     }
 
 
@@ -1735,6 +1742,8 @@ def get_my_run_history(
                 riasec_s=int(scores.get("s", 0) or 0),
                 riasec_e=int(scores.get("e", 0) or 0),
                 riasec_c=int(scores.get("c", 0) or 0),
+                loop=int(doc.get("loop") or 0),
+                threat=str(doc.get("threat") or ""),
             )
         )
     return schemas.PlayerRunHistoryOut(runs=items)
@@ -1822,6 +1831,12 @@ def finish_my_run_state(
         except Exception:
             LOGGER.exception("Could not attach quest records to the finished run of %s.", current_user.player_id)
     db.finish_run_state(current_user.player_id)
+    # Close the loop: journal entry, Sparks, remembered skills. Never blocks the finish.
+    if hasattr(db, "player_loop_meta"):
+        try:
+            loop_meta.complete_loop(db, current_user.player_id)
+        except Exception:
+            LOGGER.exception("Could not close the loop of %s.", current_user.player_id)
     audit_log(
         "RUN_STATE_FINISHED",
         player_id=current_user.player_id,
@@ -1894,6 +1909,106 @@ def reset_my_run_state(
         via="api",
     )
     return schemas.RunStateResetOut(success=True, message="Run reset.")
+
+
+# ── Loops: what carries over between runs (app/loop_meta.py) ─────────────────
+
+def _iso(value: Any) -> str:
+    return value.isoformat() + "Z" if isinstance(value, datetime) else str(value or "")
+
+
+def _loop_meta_out(doc: dict[str, Any], message: str = "") -> schemas.LoopMetaOut:
+    history = []
+    for h in doc.get("history") or []:
+        history.append(schemas.LoopHistoryItem(
+            loop=int(h.get("loop") or 0),
+            threat=str(h.get("threat") or ""),
+            holland_code=str(h.get("holland_code") or ""),
+            career=str(h.get("career") or ""),
+            passed=int(h.get("passed") or 0),
+            failed=int(h.get("failed") or 0),
+            kept_skills=[str(s) for s in h.get("kept_skills") or []],
+            mementos=[str(m) for m in h.get("mementos") or []],
+            sparks_earned=int(h.get("sparks_earned") or 0),
+            finished_at=_iso(h.get("finished_at")),
+        ))
+    equipped = [str(m) for m in doc.get("equipped_mementos") or []]
+    return schemas.LoopMetaOut(
+        current_loop=int(doc.get("current_loop") or 1),
+        loops_completed=int(doc.get("loops_completed") or 0),
+        current_finished=bool(doc.get("current_finished")),
+        threat=str(doc.get("threat") or ""),
+        threats_seen=[str(t) for t in doc.get("threats_seen") or []],
+        kept_skills=[str(s) for s in doc.get("kept_skills") or []],
+        equipped_mementos=equipped,
+        owned_mementos=[str(m) for m in doc.get("owned_mementos") or []],
+        sparks=int(doc.get("sparks") or 0),
+        memory_slots=loop_meta.memory_slots(equipped),
+        max_equipped=loop_meta.MAX_EQUIPPED,
+        shop=[schemas.LoopMementoInfo(id=k, cost=v) for k, v in loop_meta.MEMENTOS.items()],
+        history=history,
+        last_owned_skills=[str(s) for s in doc.get("last_owned_skills") or []],
+        last_passed=[str(q) for q in doc.get("last_passed") or []],
+        last_failed=[str(q) for q in doc.get("last_failed") or []],
+        message=message,
+    )
+
+
+@router.get("/users/me/loop", response_model=schemas.LoopMetaOut)
+def get_my_loop(
+    current_user = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    """The caller's loop record (created on first ask: loop 1, a random threat)."""
+    return _loop_meta_out(loop_meta.sync_with_run_state(db, current_user.player_id))
+
+
+@router.post("/users/me/loop/begin", response_model=schemas.LoopMetaOut)
+def begin_my_loop(
+    payload: schemas.LoopBeginIn,
+    current_user = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    """Go Back: start the next loop with the chosen memories and keepsakes."""
+    try:
+        doc = loop_meta.begin_loop(db, current_user.player_id, payload.kept_skills, payload.equipped_mementos)
+    except loop_meta.LoopError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    audit_log(
+        "LOOP_BEGIN",
+        player_id=current_user.player_id,
+        username=current_user.username,
+        loop=doc.get("current_loop"),
+        threat=doc.get("threat"),
+        kept_skills=",".join(doc.get("kept_skills") or []),
+        mementos=",".join(doc.get("equipped_mementos") or []),
+    )
+    return _loop_meta_out(doc)
+
+
+@router.post("/users/me/loop/buy", response_model=schemas.LoopMetaOut)
+def buy_my_memento(
+    payload: schemas.LoopBuyIn,
+    current_user = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    try:
+        doc = loop_meta.buy_memento(db, current_user.player_id, payload.memento_id)
+    except loop_meta.LoopError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    return _loop_meta_out(doc)
+
+
+@router.post("/users/me/loop/reset", response_model=schemas.LoopMetaOut)
+def reset_my_loop(
+    current_user = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    """New Game: forget every loop (memories, keepsakes, Sparks, journal). Finished runs
+    stay in session_runs for reporting."""
+    doc = loop_meta.reset(db, current_user.player_id)
+    audit_log("LOOP_RESET", player_id=current_user.player_id, username=current_user.username)
+    return _loop_meta_out(doc)
 
 
 @router.post(
@@ -3417,9 +3532,36 @@ def admin_user_performance_page(
             "attempts_by_quest": attempts_by_quest,
             "cluster_profiles": _admin_cluster_explainer(),
             "summary": summary,
+            "loops": _admin_loop_summary(db, user.player_id),
             **_flash_context(request),
         },
     )
+
+
+def _admin_loop_summary(db: TelemetryRepository, player_id: str | None) -> dict[str, Any] | None:
+    """The player's loop record for the admin page (read only - never creates one)."""
+    if not player_id or not hasattr(db, "player_loop_meta"):
+        return None
+    try:
+        doc = db.player_loop_meta.find_one({"player_id": player_id})
+    except Exception:
+        return None
+    if not doc:
+        return None
+    return {
+        "current_loop": int(doc.get("current_loop") or 1),
+        "loops_completed": int(doc.get("loops_completed") or 0),
+        "current_finished": bool(doc.get("current_finished")),
+        "threat": str(doc.get("threat") or ""),
+        "kept_skills": list(doc.get("kept_skills") or []),
+        "equipped": list(doc.get("equipped_mementos") or []),
+        "owned": list(doc.get("owned_mementos") or []),
+        "sparks": int(doc.get("sparks") or 0),
+        "history": [
+            {**h, "finished_at": _format_admin_datetime(h.get("finished_at"))}
+            for h in (doc.get("history") or [])
+        ],
+    }
 
 
 @admin_ui_router.post("/quest-bindings/assign")

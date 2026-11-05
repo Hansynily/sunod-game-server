@@ -35,6 +35,9 @@ class TelemetryRepository:
         # One doc per app launch (player_id + app_session_id), upserted by heartbeats.
         # Play time lives here, independent of runs, so menu/tutorial time counts too.
         self.play_sessions = database["play_sessions"]
+        # One doc per player: what carries over between loops (runs). Survives the end of a
+        # run and run-state resets; only New Game wipes it. See app/loop_meta.py.
+        self.player_loop_meta = database["player_loop_meta"]
 
     def ping(self) -> None:
         self.database.command("ping")
@@ -86,6 +89,11 @@ class TelemetryRepository:
             [("player_id", ASCENDING)],
             unique=True,
             name="player_run_state_player_id_unique",
+        )
+        self.player_loop_meta.create_index(
+            [("player_id", ASCENDING)],
+            unique=True,
+            name="player_loop_meta_player_id_unique",
         )
         self.play_sessions.create_index(
             [("player_id", ASCENDING), ("app_session_id", ASCENDING)],
@@ -1252,6 +1260,7 @@ class TelemetryRepository:
         self.session_runs.delete_many(delete_filter)
         if player_id:
             self.play_sessions.delete_many({"player_id": player_id})
+            self.player_loop_meta.delete_many({"player_id": player_id})
         return result.deleted_count == 1
 
     def add_session_run(

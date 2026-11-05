@@ -388,10 +388,62 @@ class PlayerRunHistoryItem(BaseModel):
     riasec_s: int = 0
     riasec_e: int = 0
     riasec_c: int = 0
+    loop: int = 0          # 0 = finished before loops existed
+    threat: str = ""
 
 
 class PlayerRunHistoryOut(BaseModel):
     runs: list[PlayerRunHistoryItem] = Field(default_factory=list)
+
+
+# ── Loops (what carries over between runs, see app/loop_meta.py) ──────────────
+# Same JsonUtility rule as above: no nulls, no dicts.
+
+class LoopHistoryItem(BaseModel):
+    loop: int = 0
+    threat: str = ""
+    holland_code: str = ""
+    career: str = ""
+    passed: int = 0
+    failed: int = 0
+    kept_skills: list[str] = Field(default_factory=list)
+    mementos: list[str] = Field(default_factory=list)
+    sparks_earned: int = 0
+    finished_at: str = ""
+
+
+class LoopMementoInfo(BaseModel):
+    id: str
+    cost: int
+
+
+class LoopMetaOut(BaseModel):
+    current_loop: int = 1
+    loops_completed: int = 0
+    current_finished: bool = False
+    threat: str = ""
+    threats_seen: list[str] = Field(default_factory=list)
+    kept_skills: list[str] = Field(default_factory=list)
+    equipped_mementos: list[str] = Field(default_factory=list)
+    owned_mementos: list[str] = Field(default_factory=list)
+    sparks: int = 0
+    memory_slots: int = 3
+    max_equipped: int = 2
+    shop: list[LoopMementoInfo] = Field(default_factory=list)
+    history: list[LoopHistoryItem] = Field(default_factory=list)
+    last_owned_skills: list[str] = Field(default_factory=list)
+    last_passed: list[str] = Field(default_factory=list)
+    last_failed: list[str] = Field(default_factory=list)
+    message: str = ""
+
+
+class LoopBeginIn(BaseModel):
+    kept_skills: list[str] = Field(default_factory=list, max_length=8)
+    equipped_mementos: list[str] = Field(default_factory=list, max_length=8)
+
+
+class LoopBuyIn(BaseModel):
+    memento_id: str = Field(..., min_length=1, max_length=40)
 
 
 class PlayerProgressOut(BaseModel):

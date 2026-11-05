@@ -282,7 +282,7 @@
                 <tbody>
                 {% for run in runs %}
                     <tr class="expandable" data-detail="run-{{ loop.index }}">
-                        <td data-label="Run" class="strong"><span class="caret">▸</span> Run {{ runs|length - loop.index0 }}</td>
+                        <td data-label="Run" class="strong"><div><div class="cell-title"><span class="caret">▸</span> Run {{ runs|length - loop.index0 }}</div>{% if run.loop %}<div class="cell-sub">Loop {{ run.loop }} · {{ run.threat|capitalize }}{% if run.kept_skills %} · remembered {{ run.kept_skills|join(", ") }}{% endif %}{% if run.mementos %} · {{ run.mementos|join(", ") }}{% endif %}</div>{% endif %}</div></td>
                         <td data-label="Career result"><div><div class="cell-title">{{ run.career_result if run.career_result != "N/A" else (run.cluster_label or "Pending") }}</div><div class="cell-sub">{{ run.cluster_label or "" }}</div></div></td>
                         <td data-label="Code" class="code">{{ run.cluster_holland_code or run.holland_code or "-" }}</td>
                         <td data-label="Quests"><span>{{ run.counts.attempted }} played <span class="cell-sub">· {{ run.counts.completed }} completed · {{ run.counts.failed }} failed{% if run.counts.rejected %} · {{ run.counts.rejected }} rejected{% endif %}</span></span></td>
@@ -318,6 +318,40 @@
         </div>
     </div>
 </section>
+
+{# ── Loops: what carries over between runs ─────────────────────── #}
+{% if loops %}
+<section class="section block-purple" id="loops">
+    {{ section_head("5b", "Loops", "loop " ~ loops.current_loop ~ (" (finished)" if loops.current_finished else " (playing)")) }}
+    <div class="section-body">
+        <div class="stats">
+            <div class="stat block-purple"><div class="stat-label">Loops finished</div><div class="stat-value">{{ loops.loops_completed }}</div><div class="stat-sub">Loop 1 is the baseline run</div></div>
+            <div class="stat block-purple"><div class="stat-label">This loop's threat</div><div class="stat-value sm">{{ loops.threat|capitalize or "-" }}</div><div class="stat-sub">Story only</div></div>
+            <div class="stat block-purple"><div class="stat-label">Remembered skills</div><div class="stat-value sm">{{ loops.kept_skills|join(", ") or "None" }}</div><div class="stat-sub">Start in their kind's slot</div></div>
+            <div class="stat block-purple"><div class="stat-label">Keepsakes</div><div class="stat-value sm">{{ loops.equipped|join(", ") or "None" }}</div><div class="stat-sub">{{ loops.sparks }} Sparks · owns {{ loops.owned|length }}</div></div>
+        </div>
+        {% if loops.history %}
+        <div class="table-wrap scroll">
+            <table class="t stack">
+                <thead><tr><th class="num">Loop</th><th>Threat</th><th>Career</th><th>Code</th><th>Quests</th><th>Remembered</th><th>Keepsakes</th><th>Finished</th></tr></thead>
+                <tbody>
+                {% for h in loops.history|reverse %}
+                    <tr><td data-label="Loop" class="num strong">{{ h.loop }}</td>
+                        <td data-label="Threat">{{ h.threat|capitalize }}</td>
+                        <td data-label="Career">{{ h.career or "-" }}</td>
+                        <td data-label="Code" class="code">{{ h.holland_code or "-" }}</td>
+                        <td data-label="Quests">{{ h.passed }} passed · {{ h.failed }} failed</td>
+                        <td data-label="Remembered" class="small">{{ (h.kept_skills or [])|join(", ") or "-" }}</td>
+                        <td data-label="Keepsakes" class="small">{{ (h.mementos or [])|join(", ") or "-" }}</td>
+                        <td data-label="Finished" class="small nowrap">{{ h.finished_at }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endif %}
 
 {# ── 6. Play time ───────────────────────────────────────────────── #}
 <section class="section block-teal" id="play-time">
