@@ -282,6 +282,8 @@ class RunStateQuestRecord(BaseModel):
     completed: bool = False
     stars: int = Field(0, ge=0, le=3)
     stars5: int = Field(-1, ge=-1, le=5)   # 0-5 as shown in the quest (display only)
+    # "old" = defense-build quests, "new" = minigame versions (admin-only switch in the game)
+    gameplay_mode: Literal["old", "new"] = "old"
     time_spent_seconds: float = Field(0.0, ge=0.0)
     skill_use_r: int = Field(0, ge=0)
     skill_use_i: int = Field(0, ge=0)

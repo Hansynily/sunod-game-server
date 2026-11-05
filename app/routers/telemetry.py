@@ -778,6 +778,7 @@ def _quest_detail_rows(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "stars": stars,
                 "stars5": stars5 if completed else 0,
                 "stars5_estimated": not stars5_known,
+                "gameplay_mode": str(raw.get("gameplay_mode") or "old"),
                 # The 1-5 answer this quest gives its questionnaire item (same rule as the game).
                 "item_score": (2 + max(0, min(3, stars))) if completed else 1,
                 "time_spent_seconds": round(time_spent, 1),
@@ -1917,7 +1918,7 @@ def _iso(value: Any) -> str:
     return value.isoformat() + "Z" if isinstance(value, datetime) else str(value or "")
 
 
-def _loop_meta_out(doc: dict[str, Any], message: str = "") -> schemas.LoopMetaOut:
+def _loop_meta_out(doc: dict[str, Any], message: str = "", stars: int | None = None) -> schemas.LoopMetaOut:
     history = []
     for h in doc.get("history") or []:
         history.append(schemas.LoopHistoryItem(
@@ -1942,7 +1943,7 @@ def _loop_meta_out(doc: dict[str, Any], message: str = "") -> schemas.LoopMetaOu
         kept_skills=[str(s) for s in doc.get("kept_skills") or []],
         unlocked_mementos=[str(m) for m in doc.get("unlocked_mementos") or []],
         owned_mementos=owned,
-        stars=int(doc.get("stars") or 0),
+        stars=int(doc.get("stars") or 0) if stars is None else stars,
         shop=[schemas.LoopShopItem(id=k, cost=v[1]) for k, v in loop_meta.MEMENTOS.items()],
         memory_slots=loop_meta.memory_slots(owned),
         history=history,
@@ -1958,7 +1959,8 @@ def get_my_loop(
     db: TelemetryRepository = Depends(get_db),
 ):
     """The caller's loop record (created on first ask: loop 1, a random threat)."""
-    return _loop_meta_out(loop_meta.sync_with_run_state(db, current_user.player_id))
+    doc = loop_meta.sync_with_run_state(db, current_user.player_id)
+    return _loop_meta_out(doc, stars=loop_meta.available_stars(db, current_user.player_id, doc))
 
 
 @router.post("/users/me/loop/begin", response_model=schemas.LoopMetaOut)
@@ -1995,7 +1997,7 @@ def buy_my_memento(
         doc = loop_meta.buy_memento(db, current_user.player_id, payload.memento_id)
     except loop_meta.LoopError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
-    return _loop_meta_out(doc)
+    return _loop_meta_out(doc, stars=loop_meta.available_stars(db, current_user.player_id, doc))
 
 
 @router.post("/users/me/loop/reset", response_model=schemas.LoopMetaOut)

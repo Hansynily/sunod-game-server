@@ -297,7 +297,7 @@
                                 <thead><tr><th class="num">#</th><th>Quest</th><th>Item</th><th>Result</th><th>Stars</th><th class="num">Score</th><th class="num">Time</th><th>Skills used</th></tr></thead>
                                 <tbody>
                                 {% for q in run.quests %}
-                                    <tr><td class="num muted">{{ q.order }}</td><td class="strong">{{ q.quest_name }}</td>
+                                    <tr><td class="num muted">{{ q.order }}</td><td class="strong">{{ q.quest_name }}{% if q.gameplay_mode == "new" %} <span class="muted small">(new gameplay)</span>{% endif %}</td>
                                         <td><span class="tag-row">{{ letter(q.letter) }}<span class="code">{{ q.question_code or "-" }}</span></span></td>
                                         <td>{{ outcome(q.outcome, q.outcome_label) }}</td>
                                         <td>{% if q.outcome == "completed" %}{{ stars(q.stars5, 5, q.stars5_estimated) }}{% else %}<span class="muted">-</span>{% endif %}</td>

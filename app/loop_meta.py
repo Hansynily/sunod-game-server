@@ -205,8 +205,22 @@ def complete_loop(repo, player_id: str) -> dict[str, Any]:
     return get(repo, player_id)
 
 
+def run_stars(repo, player_id: str, doc: dict[str, Any]) -> int:
+    """Stars earned so far in the loop being played (not banked yet)."""
+    if doc.get("current_finished"):
+        return 0
+    state = repo.get_run_state(player_id) or {}
+    return stars_from_records(state.get("quest_records") or [])
+
+
+def available_stars(repo, player_id: str, doc: dict[str, Any]) -> int:
+    """What the shop can spend: the bank plus this loop's stars so far. (`stars` can dip
+    below zero mid-loop after spending this loop's stars; the loop's end banks them.)"""
+    return int(doc.get("stars") or 0) + run_stars(repo, player_id, doc)
+
+
 def buy_memento(repo, player_id: str, memento_id: str) -> dict[str, Any]:
-    """Shop: buy an unlocked keepsake with banked stars."""
+    """Shop (the stall in town): buy an unlocked keepsake with stars."""
     if memento_id not in MEMENTOS:
         raise LoopError("Unknown keepsake.")
     doc = sync_with_run_state(repo, player_id)
@@ -215,9 +229,10 @@ def buy_memento(repo, player_id: str, memento_id: str) -> dict[str, Any]:
     if memento_id not in (doc.get("unlocked_mementos") or []):
         raise LoopError("Locked.")
     cost = MEMENTOS[memento_id][1]
-    # Atomic: only spends if the stars are there.
+    earned_now = run_stars(repo, player_id, doc)
+    # Atomic: only spends if bank + this loop's stars cover it.
     result = repo.player_loop_meta.update_one(
-        {"player_id": player_id, "stars": {"$gte": cost}},
+        {"player_id": player_id, "stars": {"$gte": cost - earned_now}},
         {"$inc": {"stars": -cost}, "$addToSet": {"owned_mementos": memento_id},
          "$set": {"updated_at": datetime.utcnow()}},
     )
