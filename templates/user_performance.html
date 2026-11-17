@@ -328,12 +328,18 @@
             <div class="stat block-purple"><div class="stat-label">Loops finished</div><div class="stat-value">{{ loops.loops_completed }}</div><div class="stat-sub">Loop 1 is the baseline run</div></div>
             <div class="stat block-purple"><div class="stat-label">This loop's threat</div><div class="stat-value sm">{{ loops.threat|capitalize or "-" }}</div><div class="stat-sub">Story only</div></div>
             <div class="stat block-purple"><div class="stat-label">Remembered skills</div><div class="stat-value sm">{{ loops.kept_skills|join(", ") or "None" }}</div><div class="stat-sub">Start in their kind's slot</div></div>
-            <div class="stat block-purple"><div class="stat-label">Keepsakes</div><div class="stat-value sm">{{ loops.owned|join(", ") or "None" }}</div><div class="stat-sub">Bought in the shop · {{ loops.stars }} stars banked</div></div>
+            <div class="stat block-purple"><div class="stat-label">Keepsakes carried</div><div class="stat-value sm">{{ loops.carried|join(", ") or "None" }}</div><div class="stat-sub">{{ loops.pockets }} pockets · owns {{ loops.owned|join(", ") or "none" }}{% if loops.lv2 %} · Lv2: {{ loops.lv2|join(", ") }}{% endif %} · {{ loops.stars }} stars banked</div></div>
         </div>
+        {% if loops.paths %}
+        <div class="stats">
+            <div class="stat block-purple"><div class="stat-label">First path (baseline) · loop {{ loops.paths.baseline.loop }}</div><div class="stat-value sm">{{ loops.paths.baseline.holland_code or "-" }} · {{ loops.paths.baseline.career or "-" }}</div><div class="stat-sub">Use this for analysis</div></div>
+            <div class="stat block-purple"><div class="stat-label">Latest path · loop {{ loops.paths.latest.loop }}</div><div class="stat-value sm">{{ loops.paths.latest.holland_code or "-" }} · {{ loops.paths.latest.career or "-" }}</div><div class="stat-sub">{% if loops.paths.differ %}{{ loops.paths.change_line }} {{ loops.paths.reason_line }}{% else %}Same as the baseline{% endif %}</div></div>
+        </div>
+        {% endif %}
         {% if loops.history %}
         <div class="table-wrap scroll">
             <table class="t stack">
-                <thead><tr><th class="num">Loop</th><th>Threat</th><th>Career</th><th>Code</th><th>Quests</th><th>Remembered</th><th>Keepsakes</th><th>Finished</th></tr></thead>
+                <thead><tr><th class="num">Loop</th><th>Threat</th><th>Career</th><th>Code</th><th>Quests</th><th>Remembered</th><th>Keepsakes</th><th>Helpers</th><th>What changed</th><th>Finished</th></tr></thead>
                 <tbody>
                 {% for h in loops.history|reverse %}
                     <tr><td data-label="Loop" class="num strong">{{ h.loop }}</td>
@@ -342,7 +348,9 @@
                         <td data-label="Code" class="code">{{ h.holland_code or "-" }}</td>
                         <td data-label="Quests">{{ h.passed }} passed · {{ h.failed }} failed</td>
                         <td data-label="Remembered" class="small">{{ (h.kept_skills or [])|join(", ") or "-" }}</td>
-                        <td data-label="Keepsakes" class="small">{{ (h.mementos or [])|join(", ") or "-" }}</td>
+                        <td data-label="Keepsakes" class="small">{{ (h.mementos or [])|join(", ") or "-" }}{% if h.mementos_lv2 %} (Lv2: {{ h.mementos_lv2|join(", ") }}){% endif %}</td>
+                        <td data-label="Helpers" class="small">{{ (h.helpers_used or [])|join(", ") or "-" }}</td>
+                        <td data-label="What changed" class="small">{{ h.change_line or "-" }} {{ h.reason_line }}</td>
                         <td data-label="Finished" class="small nowrap">{{ h.finished_at }}</td></tr>
                 {% endfor %}
                 </tbody>

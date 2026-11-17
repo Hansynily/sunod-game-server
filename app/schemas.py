@@ -293,6 +293,13 @@ class RunStateQuestRecord(BaseModel):
     skill_use_c: int = Field(0, ge=0)
 
 
+class SkillXpEntry(BaseModel):
+    """XP of one skill (skill system v2: Lv1 0, Lv2 15, Lv3 40). A list of these instead of
+    a dict, so Unity's JsonUtility can read it."""
+    skill: str = Field(..., min_length=1, max_length=40)
+    xp: int = Field(0, ge=0, le=9999)
+
+
 class RunStateIn(BaseModel):
     """Checkpoint pushed by the client after each quest completes - backs Continue/Reset.
     Distinct from RunSummaryTelemetryIn (completed-run history for reporting/scoring)."""
@@ -303,6 +310,7 @@ class RunStateIn(BaseModel):
     # Skill NAMES (vc_SkillData.skillName) the player owned - used to re-equip on Continue.
     # Names, not capability tags: tags aren't unique per skill, names are.
     owned_skills: list[str] = Field(default_factory=list)
+    skill_xp: list[SkillXpEntry] = Field(default_factory=list, max_length=40)
     total_stars: int = Field(0, ge=0)
     floor_scene: str = Field("", max_length=100)
     tutorial_completed: bool = False
@@ -324,6 +332,7 @@ class RunStateOut(BaseModel):
     quest_records: list[RunStateQuestRecord] = Field(default_factory=list)
     riasec_scores: dict[str, float] = Field(default_factory=dict)
     owned_skills: list[str] = Field(default_factory=list)
+    skill_xp: list[SkillXpEntry] = Field(default_factory=list)
     total_stars: int = 0
     floor_scene: str | None = None
     tutorial_completed: bool = False
@@ -409,14 +418,45 @@ class LoopHistoryItem(BaseModel):
     passed: int = 0
     failed: int = 0
     kept_skills: list[str] = Field(default_factory=list)
-    mementos: list[str] = Field(default_factory=list)
+    mementos: list[str] = Field(default_factory=list)        # keepsakes carried that loop
+    mementos_lv2: list[str] = Field(default_factory=list)    # ...of which at Lv2
+    helpers_used: list[str] = Field(default_factory=list)    # one-use stall helpers used
     stars_earned: int = 0
     finished_at: str = ""
+    # what changed since the loop before (app/loop_meta.compare_loops; from recorded data only)
+    changed: bool = False
+    change_line: str = ""
+    reason_line: str = ""
+
+
+class LoopPathOut(BaseModel):
+    loop: int = 0
+    holland_code: str = ""
+    career: str = ""
+
+
+class LoopPathsOut(BaseModel):
+    """Final result when loops disagree: both the first path (baseline) and the latest."""
+    differ: bool = False
+    baseline: LoopPathOut = Field(default_factory=LoopPathOut)
+    latest: LoopPathOut = Field(default_factory=LoopPathOut)
+    change_line: str = ""
+    reason_line: str = ""
 
 
 class LoopShopItem(BaseModel):
     id: str
     cost: int
+    type: str = "keepsake"      # keepsake | event | pocket | helper | outfit | hat | trail | pet | home | page
+    lv2_cost: int = 0           # keepsakes: price of the friendship upgrade
+
+
+class LoopEquippedOut(BaseModel):
+    outfit: str = ""
+    hat: str = ""
+    trail: str = ""
+    pet: str = ""
+    home: list[str] = Field(default_factory=list)
 
 
 class LoopMetaOut(BaseModel):
@@ -427,12 +467,29 @@ class LoopMetaOut(BaseModel):
     threats_seen: list[str] = Field(default_factory=list)
     kept_skills: list[str] = Field(default_factory=list)
     unlocked_mementos: list[str] = Field(default_factory=list)   # in the shop, can be bought
-    owned_mementos: list[str] = Field(default_factory=list)      # bought: all of them come along
-    stars: int = 0                                               # banked stars to spend
+    owned_mementos: list[str] = Field(default_factory=list)      # owned forever
+    carried_mementos: list[str] = Field(default_factory=list)    # in the pockets this loop: only these work
+    pockets: int = 2
+    max_pockets: int = 4
+    lv2_unlocked: list[str] = Field(default_factory=list)        # friendship upgrade can be bought
+    lv2_owned: list[str] = Field(default_factory=list)
+    events_joined: list[str] = Field(default_factory=list)       # RIASEC letters of town events joined (all loops)
+    fiesta_seen: bool = False
+    helpers_held: list[str] = Field(default_factory=list)        # bought, not used yet
+    helpers_bought_loop: list[str] = Field(default_factory=list)
+    helpers_used_loop: list[str] = Field(default_factory=list)
+    cosmetics_owned: list[str] = Field(default_factory=list)
+    equipped: LoopEquippedOut = Field(default_factory=LoopEquippedOut)
+    pages_owned: list[str] = Field(default_factory=list)
+    stars: int = 0                                               # stars the stall can spend
     shop: list[LoopShopItem] = Field(default_factory=list)
     memory_slots: int = 3
     history: list[LoopHistoryItem] = Field(default_factory=list)
+    paths: LoopPathsOut | None = None                            # set from 2 finished loops on
+    faded_skill_xp: list[SkillXpEntry] = Field(default_factory=list)  # Name Tag: XP forgotten skills keep
     last_owned_skills: list[str] = Field(default_factory=list)
+    kept_skill_xp: list[SkillXpEntry] = Field(default_factory=list)   # XP the remembered skills carry
+    last_skill_xp: list[SkillXpEntry] = Field(default_factory=list)   # XP of every skill at the last loop's end
     last_passed: list[str] = Field(default_factory=list)
     last_failed: list[str] = Field(default_factory=list)
     message: str = ""
@@ -440,10 +497,26 @@ class LoopMetaOut(BaseModel):
 
 class LoopBeginIn(BaseModel):
     kept_skills: list[str] = Field(default_factory=list, max_length=8)
+    # keepsakes to carry this loop; None = an older game (keep last loop's pockets)
+    carried_mementos: list[str] | None = Field(default=None, max_length=8)
+    has_carried: bool = False   # Unity's JsonUtility can't send null: true = use carried_mementos
 
 
 class LoopBuyIn(BaseModel):
     memento_id: str = Field(..., min_length=1, max_length=40)
+
+
+class LoopShopBuyIn(BaseModel):
+    item_id: str = Field(..., min_length=1, max_length=40)
+
+
+class LoopHelperIn(BaseModel):
+    helper_id: str = Field(..., min_length=1, max_length=40)
+
+
+class LoopEquipIn(BaseModel):
+    slot: str = Field(..., min_length=1, max_length=20)
+    item_id: str = Field("", max_length=40)
 
 
 class PlayerProgressOut(BaseModel):

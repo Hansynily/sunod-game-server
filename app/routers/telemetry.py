@@ -1767,6 +1767,16 @@ def get_my_run_state(
     return _run_state_to_out(state)
 
 
+def _skill_xp_out(raw: Any) -> list[schemas.SkillXpEntry]:
+    out = []
+    for e in raw or []:
+        try:
+            out.append(schemas.SkillXpEntry(skill=str(e.get("skill") or ""), xp=int(e.get("xp") or 0)))
+        except Exception:
+            continue
+    return out
+
+
 def _run_state_to_out(state: dict) -> schemas.RunStateOut:
     records = []
     for raw in state.get("quest_records") or []:
@@ -1781,6 +1791,7 @@ def _run_state_to_out(state: dict) -> schemas.RunStateOut:
         quest_records=records,
         riasec_scores=state.get("riasec_scores") or {},
         owned_skills=state.get("owned_skills") or [],
+        skill_xp=_skill_xp_out(state.get("skill_xp")),
         total_stars=int(state.get("total_stars") or 0),
         floor_scene=state.get("floor_scene") or None,
         tutorial_completed=bool(state.get("tutorial_completed")),
@@ -1811,6 +1822,7 @@ def put_my_run_state(
         tutorial_completed=payload.tutorial_completed,
         run_finished=payload.run_finished,
         quest_records=[r.model_dump() for r in payload.quest_records],
+        skill_xp=[e.model_dump() for e in payload.skill_xp],
     )
     return _run_state_to_out(state)
 
@@ -1918,9 +1930,20 @@ def _iso(value: Any) -> str:
     return value.isoformat() + "Z" if isinstance(value, datetime) else str(value or "")
 
 
+def _shop_out() -> list[schemas.LoopShopItem]:
+    items = [schemas.LoopShopItem(id=k, cost=v[1], type="keepsake", lv2_cost=v[2]) for k, v in loop_meta.MEMENTOS.items()]
+    items += [schemas.LoopShopItem(id=k, cost=0, type="event") for k in loop_meta.EVENT_MEMENTOS]
+    items += [schemas.LoopShopItem(id=f"pocket{n}", cost=c, type="pocket") for n, c in loop_meta.POCKET_PRICES.items()]
+    items += [schemas.LoopShopItem(id=k, cost=c, type="helper") for k, c in loop_meta.HELPERS.items()]
+    items += [schemas.LoopShopItem(id=k, cost=c, type=t) for k, (t, c) in loop_meta.COSMETICS.items()]
+    items += [schemas.LoopShopItem(id=p, cost=loop_meta.STORY_PRICE, type="page") for p in loop_meta.STORY_PAGES]
+    return items
+
+
 def _loop_meta_out(doc: dict[str, Any], message: str = "", stars: int | None = None) -> schemas.LoopMetaOut:
     history = []
-    for h in doc.get("history") or []:
+    raw_history = list(doc.get("history") or [])
+    for h in loop_meta.journal(raw_history):
         history.append(schemas.LoopHistoryItem(
             loop=int(h.get("loop") or 0),
             threat=str(h.get("threat") or ""),
@@ -1930,10 +1953,18 @@ def _loop_meta_out(doc: dict[str, Any], message: str = "", stars: int | None = N
             failed=int(h.get("failed") or 0),
             kept_skills=[str(s) for s in h.get("kept_skills") or []],
             mementos=[str(m) for m in h.get("mementos") or []],
+            mementos_lv2=[str(m) for m in h.get("mementos_lv2") or []],
+            helpers_used=[str(m) for m in h.get("helpers_used") or []],
             stars_earned=int(h.get("stars_earned") or 0),
             finished_at=_iso(h.get("finished_at")),
+            changed=bool(h.get("changed")),
+            change_line=str(h.get("change_line") or ""),
+            reason_line=str(h.get("reason_line") or ""),
         ))
     owned = [str(m) for m in doc.get("owned_mementos") or []]
+    bag = loop_meta.carried(doc)
+    eq = doc.get("equipped") or {}
+    paths = loop_meta.paths(raw_history)
     return schemas.LoopMetaOut(
         current_loop=int(doc.get("current_loop") or 1),
         loops_completed=int(doc.get("loops_completed") or 0),
@@ -1943,11 +1974,31 @@ def _loop_meta_out(doc: dict[str, Any], message: str = "", stars: int | None = N
         kept_skills=[str(s) for s in doc.get("kept_skills") or []],
         unlocked_mementos=[str(m) for m in doc.get("unlocked_mementos") or []],
         owned_mementos=owned,
+        carried_mementos=bag,
+        pockets=loop_meta.pockets(doc),
+        max_pockets=loop_meta.MAX_POCKETS,
+        lv2_unlocked=[str(m) for m in doc.get("lv2_unlocked") or []],
+        lv2_owned=[str(m) for m in doc.get("lv2_owned") or []],
+        events_joined=[str(m) for m in doc.get("events_joined") or []],
+        fiesta_seen=bool(doc.get("fiesta_seen")),
+        helpers_held=[str(m) for m in doc.get("helpers_held") or []],
+        helpers_bought_loop=[str(m) for m in doc.get("helpers_bought_loop") or []],
+        helpers_used_loop=[str(m) for m in doc.get("helpers_used_loop") or []],
+        cosmetics_owned=[str(m) for m in doc.get("cosmetics_owned") or []],
+        equipped=schemas.LoopEquippedOut(
+            outfit=str(eq.get("outfit") or ""), hat=str(eq.get("hat") or ""),
+            trail=str(eq.get("trail") or ""), pet=str(eq.get("pet") or ""),
+            home=[str(h) for h in eq.get("home") or []]),
+        pages_owned=[str(m) for m in doc.get("pages_owned") or []],
         stars=int(doc.get("stars") or 0) if stars is None else stars,
-        shop=[schemas.LoopShopItem(id=k, cost=v[1]) for k, v in loop_meta.MEMENTOS.items()],
-        memory_slots=loop_meta.memory_slots(owned),
+        shop=_shop_out(),
+        memory_slots=loop_meta.memory_slots(bag),
         history=history,
+        paths=schemas.LoopPathsOut(**paths) if paths else None,
         last_owned_skills=[str(s) for s in doc.get("last_owned_skills") or []],
+        kept_skill_xp=_skill_xp_out(doc.get("kept_skill_xp")),
+        last_skill_xp=_skill_xp_out(doc.get("last_skill_xp")),
+        faded_skill_xp=_skill_xp_out(doc.get("faded_skill_xp")),
         last_passed=[str(q) for q in doc.get("last_passed") or []],
         last_failed=[str(q) for q in doc.get("last_failed") or []],
         message=message,
@@ -1971,7 +2022,8 @@ def begin_my_loop(
 ):
     """Go Back: start the next loop with the chosen memories and keepsakes."""
     try:
-        doc = loop_meta.begin_loop(db, current_user.player_id, payload.kept_skills)
+        carry = payload.carried_mementos if (payload.has_carried or payload.carried_mementos) else None
+        doc = loop_meta.begin_loop(db, current_user.player_id, payload.kept_skills, carry)
     except loop_meta.LoopError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     audit_log(
@@ -1981,7 +2033,7 @@ def begin_my_loop(
         loop=doc.get("current_loop"),
         threat=doc.get("threat"),
         kept_skills=",".join(doc.get("kept_skills") or []),
-        mementos=",".join(doc.get("owned_mementos") or []),
+        mementos=",".join(loop_meta.carried(doc)),
     )
     return _loop_meta_out(doc)
 
@@ -1995,6 +2047,50 @@ def buy_my_memento(
     """Keepsake shop: buy an unlocked keepsake with banked stars."""
     try:
         doc = loop_meta.buy_memento(db, current_user.player_id, payload.memento_id)
+    except loop_meta.LoopError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    return _loop_meta_out(doc, stars=loop_meta.available_stars(db, current_user.player_id, doc))
+
+
+@router.post("/users/me/loop/shop/buy", response_model=schemas.LoopMetaOut)
+def buy_from_stall(
+    payload: schemas.LoopShopBuyIn,
+    current_user = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    """The stall: buy a keepsake, a friendship upgrade ("lv2:<id>"), a pocket, a helper, a
+    cosmetic or a journal page with stars. Atomic; stars are the only currency."""
+    try:
+        doc = loop_meta.buy(db, current_user.player_id, payload.item_id)
+    except loop_meta.LoopError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    audit_log("LOOP_BUY", player_id=current_user.player_id, username=current_user.username, item=payload.item_id)
+    return _loop_meta_out(doc, stars=loop_meta.available_stars(db, current_user.player_id, doc))
+
+
+@router.post("/users/me/loop/helper/use", response_model=schemas.LoopMetaOut)
+def use_stall_helper(
+    payload: schemas.LoopHelperIn,
+    current_user = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    """Uses a one-use helper (night-pick reroll, lucky card, study notes). Recorded on the loop."""
+    try:
+        doc = loop_meta.use_helper(db, current_user.player_id, payload.helper_id)
+    except loop_meta.LoopError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    return _loop_meta_out(doc, stars=loop_meta.available_stars(db, current_user.player_id, doc))
+
+
+@router.post("/users/me/loop/equip", response_model=schemas.LoopMetaOut)
+def equip_cosmetic(
+    payload: schemas.LoopEquipIn,
+    current_user = Depends(get_current_user),
+    db: TelemetryRepository = Depends(get_db),
+):
+    """Wears an owned outfit / hat / trail / pet (empty = none); toggles a home add-on."""
+    try:
+        doc = loop_meta.equip(db, current_user.player_id, payload.slot, payload.item_id)
     except loop_meta.LoopError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     return _loop_meta_out(doc, stars=loop_meta.available_stars(db, current_user.player_id, doc))
@@ -3556,11 +3652,15 @@ def _admin_loop_summary(db: TelemetryRepository, player_id: str | None) -> dict[
         "threat": str(doc.get("threat") or ""),
         "kept_skills": list(doc.get("kept_skills") or []),
         "owned": list(doc.get("owned_mementos") or []),
+        "carried": loop_meta.carried(doc),
+        "pockets": loop_meta.pockets(doc),
+        "lv2": list(doc.get("lv2_owned") or []),
         "stars": int(doc.get("stars") or 0),
         "history": [
             {**h, "finished_at": _format_admin_datetime(h.get("finished_at"))}
-            for h in (doc.get("history") or [])
+            for h in loop_meta.journal(doc.get("history") or [])
         ],
+        "paths": loop_meta.paths(doc.get("history") or []),
     }
 
 

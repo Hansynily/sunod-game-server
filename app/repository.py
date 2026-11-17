@@ -336,6 +336,7 @@ class TelemetryRepository:
         tutorial_completed: bool,
         run_finished: bool = False,
         quest_records: list[dict[str, Any]] | None = None,
+        skill_xp: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         # The server copy is the only save (the game keeps none on the device), and every
         # checkpoint is the whole run so far. A checkpoint whose ids are a strict subset of
@@ -356,6 +357,7 @@ class TelemetryRepository:
             "quest_records": list(quest_records or []),
             "riasec_scores": dict(riasec_scores or {}),
             "owned_skills": list(owned_skills or []),
+            "skill_xp": list(skill_xp or []),
             "total_stars": int(total_stars or 0),
             "floor_scene": floor_scene or "",
             "tutorial_completed": bool(tutorial_completed),
