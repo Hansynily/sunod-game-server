@@ -1936,7 +1936,6 @@ def _shop_out() -> list[schemas.LoopShopItem]:
     items += [schemas.LoopShopItem(id=f"pocket{n}", cost=c, type="pocket") for n, c in loop_meta.POCKET_PRICES.items()]
     items += [schemas.LoopShopItem(id=k, cost=c, type="helper") for k, c in loop_meta.HELPERS.items()]
     items += [schemas.LoopShopItem(id=k, cost=c, type=t) for k, (t, c) in loop_meta.COSMETICS.items()]
-    items += [schemas.LoopShopItem(id=p, cost=loop_meta.STORY_PRICE, type="page") for p in loop_meta.STORY_PAGES]
     return items
 
 
@@ -1989,7 +1988,6 @@ def _loop_meta_out(doc: dict[str, Any], message: str = "", stars: int | None = N
             outfit=str(eq.get("outfit") or ""), hat=str(eq.get("hat") or ""),
             trail=str(eq.get("trail") or ""), pet=str(eq.get("pet") or ""),
             home=[str(h) for h in eq.get("home") or []]),
-        pages_owned=[str(m) for m in doc.get("pages_owned") or []],
         stars=int(doc.get("stars") or 0) if stars is None else stars,
         shop=_shop_out(),
         memory_slots=loop_meta.memory_slots(bag),
@@ -2058,8 +2056,8 @@ def buy_from_stall(
     current_user = Depends(get_current_user),
     db: TelemetryRepository = Depends(get_db),
 ):
-    """The stall: buy a keepsake, a friendship upgrade ("lv2:<id>"), a pocket, a helper, a
-    cosmetic or a journal page with stars. Atomic; stars are the only currency."""
+    """The stall: buy a keepsake, a friendship upgrade ("lv2:<id>"), a pocket, a helper or a
+    cosmetic with stars. Atomic; stars are the only currency."""
     try:
         doc = loop_meta.buy(db, current_user.player_id, payload.item_id)
     except loop_meta.LoopError as exc:

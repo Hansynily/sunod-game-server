@@ -447,7 +447,7 @@ class LoopPathsOut(BaseModel):
 class LoopShopItem(BaseModel):
     id: str
     cost: int
-    type: str = "keepsake"      # keepsake | event | pocket | helper | outfit | hat | trail | pet | home | page
+    type: str = "keepsake"      # keepsake | event | pocket | helper | outfit | hat | trail | pet | home
     lv2_cost: int = 0           # keepsakes: price of the friendship upgrade
 
 
@@ -480,7 +480,6 @@ class LoopMetaOut(BaseModel):
     helpers_used_loop: list[str] = Field(default_factory=list)
     cosmetics_owned: list[str] = Field(default_factory=list)
     equipped: LoopEquippedOut = Field(default_factory=LoopEquippedOut)
-    pages_owned: list[str] = Field(default_factory=list)
     stars: int = 0                                               # stars the stall can spend
     shop: list[LoopShopItem] = Field(default_factory=list)
     memory_slots: int = 3

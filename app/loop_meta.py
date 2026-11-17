@@ -12,7 +12,7 @@ keeps:
   A keepsake can be upgraded once (Lv2, "friendship") after helping its giver again, their
   preferred way, in a later loop,
 - the stall's other goods, all bought with stars (the only currency): pockets, one-use run
-  helpers, cosmetics and journal pages,
+  helpers and cosmetics,
 - a journal of every loop: the threat, the Holland code and career it ended on, what was
   carried, and what changed since the loop before.
 
@@ -92,8 +92,6 @@ COSMETICS = {
     "home_hammock": ("home", 50),
     "home_sarisari": ("home", 80),
 }
-STORY_PAGES = [f"page_{i}" for i in range(1, 11)]
-STORY_PRICE = 30
 
 TRAITS = {"R": "Realistic", "I": "Investigative", "A": "Artistic",
           "S": "Social", "E": "Enterprising", "C": "Conventional"}
@@ -279,7 +277,6 @@ def _new_doc(player_id: str) -> dict[str, Any]:
         "helpers_used_loop": [],
         "cosmetics_owned": [],
         "equipped": {},
-        "pages_owned": [],
         "stars": 0,
         "history": [],
         "last_owned_skills": [],
@@ -603,7 +600,7 @@ def buy_memento(repo, player_id: str, memento_id: str) -> dict[str, Any]:
 
 def buy(repo, player_id: str, item_id: str) -> dict[str, Any]:
     """Stall: buy anything with stars (atomic). Item ids:
-    a keepsake id, "lv2:<keepsake>", "pocket", a helper, a cosmetic, or a journal page."""
+    a keepsake id, "lv2:<keepsake>", "pocket", a helper or a cosmetic."""
     item_id = str(item_id or "").strip()
     if item_id in MEMENTOS:
         return buy_memento(repo, player_id, item_id)
@@ -642,15 +639,6 @@ def buy(repo, player_id: str, item_id: str) -> dict[str, Any]:
             return doc
         _spend(repo, player_id, COSMETICS[item_id][1], earned, {"cosmetics_owned": {"$ne": item_id}},
                {"$addToSet": {"cosmetics_owned": item_id}})
-    elif item_id in STORY_PAGES:
-        if item_id in _list(doc, "pages_owned"):
-            return doc
-        # pages are read in order: the next one only
-        nxt = next((p for p in STORY_PAGES if p not in _list(doc, "pages_owned")), None)
-        if item_id != nxt:
-            raise LoopError("Read the earlier pages first.")
-        _spend(repo, player_id, STORY_PRICE, earned, {"pages_owned": {"$ne": item_id}},
-               {"$addToSet": {"pages_owned": item_id}})
     else:
         raise LoopError("Unknown item.")
     return get(repo, player_id)
