@@ -23,7 +23,15 @@ the helpers used, so later loops can be told apart from the first in the data.
 
 One document per player in `player_loop_meta`. Finishing a run closes the loop
 (`complete_loop`, idempotent); "Go Back" starts the next one (`begin_loop`); New Game wipes
-everything (`reset`). All spending is a single conditional update (atomic).
+everything (`reset`).
+
+The stall works offline. The game applies a purchase, a helper use or an outfit change on
+the spot and saves it as a marker in the run's progress ids, like bonus stars:
+"sb:<item>" (buy), "su:<helper>" (use), "se:<n>:<slot>:<item>" (wear / show). The markers
+reach the server with the run save and are applied here in order, each exactly once
+(`stall_applied`), with the same checks as before (unlocked, owned, one per loop, enough
+stars). Stars spent this way during a loop are kept in `stall_spent_loop` and taken off the
+bank when the loop ends, so the bank only changes at a loop's end.
 """
 
 import random
@@ -47,7 +55,7 @@ MEMENTOS = {
     "jacket": ("E6", 40, 90),      # Ate Joan: preferred-way bonus x2 | Lv2 x3
     "whistle": ("R5", 50, 100),    # Mang Erning: +1 request each morning | Lv2 +2
     "nametag": ("S1", 90, 120),    # Ms. Rivera: forgotten skills keep 1/2 XP | Lv2 3/4
-    "presspass": ("A5", 70, 110),  # Kevin: rare skills x2 at night | Lv2 x3
+    "presspass": ("A5", 70, 110),  # Kevin: +1 XP to the night-pick skill | Lv2 +2
     "coinpurse": ("C7", 40, 90),   # Ms. Uy: +1 bank star per quest passed | Lv2 +2
 }
 # Event keepsakes: free, never sold, count toward pockets. Earned from the town events the
@@ -59,6 +67,7 @@ EVENT_LETTERS = {
 }
 ALL_MEMENTOS = list(MEMENTOS) + EVENT_MEMENTOS
 
+EQUIP_SLOTS = ("outfit", "hat", "trail", "pet")
 BASE_MEMORY_SLOTS = 3
 BASE_POCKETS = 2
 MAX_POCKETS = 4
@@ -268,6 +277,8 @@ def _new_doc(player_id: str) -> dict[str, Any]:
         "owned_mementos": [],
         "carried_mementos": [],
         "pockets": BASE_POCKETS,
+        "stall_applied": [],
+        "stall_spent_loop": 0,
         "lv2_unlocked": [],
         "lv2_owned": [],
         "events_joined": [],
@@ -382,6 +393,8 @@ def sync_with_run_state(repo, player_id: str) -> dict[str, Any]:
             doc = get(repo, player_id)
         if _grant_event_mementos(repo, player_id, doc):
             doc = get(repo, player_id)
+        if apply_stall_markers(repo, player_id, state):
+            doc = get(repo, player_id)
         if state.get("run_finished"):
             doc = complete_loop(repo, player_id)
     return doc
@@ -488,8 +501,10 @@ def complete_loop(repo, player_id: str) -> dict[str, Any]:
     passed = sorted({str(r.get("quest_id")) for r in records if r.get("completed") and r.get("quest_id")})
     failed = sorted({str(r.get("quest_id")) for r in records if not r.get("completed") and r.get("quest_id")} - set(passed))
     _add(repo, player_id, "unlocked_mementos", unlocks_from_records(records))
+    apply_stall_markers(repo, player_id, state)
     doc = get(repo, player_id)
     earned = _state_stars(state, doc)
+    spent = int(doc.get("stall_spent_loop") or 0)
 
     latest = repo.find_latest_run_for_player(player_id) or {}
     loop_no = int(doc.get("current_loop") or 1)
@@ -512,6 +527,7 @@ def complete_loop(repo, player_id: str) -> dict[str, Any]:
         "mementos_lv2": [m for m in bag if memento_level(doc, m) == 2],
         "helpers_used": helpers_used,
         "stars_earned": earned,
+        "stars_spent": spent,
         "finished_at": now,
     }
 
@@ -530,9 +546,10 @@ def complete_loop(repo, player_id: str) -> dict[str, Any]:
                 "last_skill_xp": list(state.get("skill_xp") or []),
                 "last_passed": passed,
                 "last_failed": failed,
+                "stall_spent_loop": 0,
                 "updated_at": now,
             },
-            "$inc": {"stars": earned},
+            "$inc": {"stars": earned - spent},
             "$push": {"history": entry},
         },
     )
@@ -565,9 +582,10 @@ def run_stars(repo, player_id: str, doc: dict[str, Any]) -> int:
 
 
 def available_stars(repo, player_id: str, doc: dict[str, Any]) -> int:
-    """What the stall can spend: the bank plus this loop's stars so far. (`stars` can dip
-    below zero mid-loop after spending this loop's stars; the loop's end banks them.)"""
-    return int(doc.get("stars") or 0) + run_stars(repo, player_id, doc)
+    """What the stall can spend: the bank plus this loop's stars so far, minus what the stall
+    already took this loop (offline buys, applied from the run's markers)."""
+    spent = 0 if doc.get("current_finished") else int(doc.get("stall_spent_loop") or 0)
+    return int(doc.get("stars") or 0) + run_stars(repo, player_id, doc) - spent
 
 
 def _spend(repo, player_id: str, cost: int, earned_now: int, guard: dict[str, Any], update: dict[str, Any]) -> None:
@@ -583,65 +601,157 @@ def _spend(repo, player_id: str, cost: int, earned_now: int, guard: dict[str, An
 
 
 def buy_memento(repo, player_id: str, memento_id: str) -> dict[str, Any]:
-    """Stall: buy an unlocked giver keepsake with stars. Goes into a free pocket."""
+    """Stall, online: buy an unlocked giver keepsake with stars. Goes into a free pocket."""
     if memento_id not in MEMENTOS:
         raise LoopError("Unknown keepsake.")
-    doc = sync_with_run_state(repo, player_id)
-    if memento_id in _list(doc, "owned_mementos"):
-        return doc
-    if memento_id not in _list(doc, "unlocked_mementos"):
-        raise LoopError("Locked.")
-    _spend(repo, player_id, MEMENTOS[memento_id][1], run_stars(repo, player_id, doc),
-           {"owned_mementos": {"$ne": memento_id}},
-           {"$addToSet": {"owned_mementos": memento_id}})
-    _fill_pockets(repo, player_id, [memento_id])
-    return get(repo, player_id)
+    return buy(repo, player_id, memento_id)
 
 
-def buy(repo, player_id: str, item_id: str) -> dict[str, Any]:
-    """Stall: buy anything with stars (atomic). Item ids:
-    a keepsake id, "lv2:<keepsake>", "pocket", a helper or a cosmetic."""
+def _purchase(doc: dict[str, Any], item_id: str):
+    """The checks and the change for one stall item, shared by the endpoint and the offline
+    markers. Returns None when there is nothing to do (already owned), else
+    (cost, guard, update, keepsakes to put in a free pocket). Raises LoopError when it can't
+    be bought. Item ids: a keepsake, "lv2:<keepsake>", "pocket" / "pocket3" / "pocket4", a
+    helper or a cosmetic."""
     item_id = str(item_id or "").strip()
     if item_id in MEMENTOS:
-        return buy_memento(repo, player_id, item_id)
-    doc = sync_with_run_state(repo, player_id)
-    earned = run_stars(repo, player_id, doc)
-
+        if item_id in _list(doc, "owned_mementos"):
+            return None
+        if item_id not in _list(doc, "unlocked_mementos"):
+            raise LoopError("Locked.")
+        return (MEMENTOS[item_id][1], {"owned_mementos": {"$ne": item_id}},
+                {"$addToSet": {"owned_mementos": item_id}}, [item_id])
     if item_id.startswith("lv2:"):
         m = item_id[4:]
         if m not in MEMENTOS:
             raise LoopError("Unknown keepsake.")
         if m in _list(doc, "lv2_owned"):
-            return doc
+            return None
         if m not in _list(doc, "lv2_unlocked") or m not in _list(doc, "owned_mementos"):
             raise LoopError("Locked.")
-        _spend(repo, player_id, MEMENTOS[m][2], earned, {"lv2_owned": {"$ne": m}},
-               {"$addToSet": {"lv2_owned": m}})
-    elif item_id == "pocket":
+        return MEMENTOS[m][2], {"lv2_owned": {"$ne": m}}, {"$addToSet": {"lv2_owned": m}}, []
+    if item_id in ("pocket", "pocket3", "pocket4"):
         have = pockets(doc)
-        if have >= MAX_POCKETS:
+        want = have + 1 if item_id == "pocket" else int(item_id[-1])
+        if have >= MAX_POCKETS and item_id == "pocket":
             raise LoopError("All pockets bought.")
+        if want <= have:
+            return None
+        if want != have + 1:
+            raise LoopError("Buy the pockets in order.")
         guard = {"pockets": have} if doc.get("pockets") is not None else {"pockets": {"$exists": False}}
-        _spend(repo, player_id, POCKET_PRICES[have + 1], earned, guard, {"$set": {"pockets": have + 1}})
         # a pocket bought mid-loop holds a keepsake that was left at home
         rest = [m for m in _list(doc, "owned_mementos") if m not in carried(doc)]
-        _fill_pockets(repo, player_id, rest[:1])
-    elif item_id in HELPERS:
+        return POCKET_PRICES[want], guard, {"$set": {"pockets": want}}, rest[:1]
+    if item_id in HELPERS:
         if item_id in _list(doc, "helpers_held"):
             raise LoopError("You already have one.")
         if item_id in _list(doc, "helpers_bought_loop"):
             raise LoopError("One per loop.")
-        _spend(repo, player_id, HELPERS[item_id], earned,
-               {"helpers_held": {"$ne": item_id}, "helpers_bought_loop": {"$ne": item_id}},
-               {"$addToSet": {"helpers_held": item_id, "helpers_bought_loop": item_id}})
-    elif item_id in COSMETICS:
+        return (HELPERS[item_id], {"helpers_held": {"$ne": item_id}, "helpers_bought_loop": {"$ne": item_id}},
+                {"$addToSet": {"helpers_held": item_id, "helpers_bought_loop": item_id}}, [])
+    if item_id in COSMETICS:
         if item_id in _list(doc, "cosmetics_owned"):
-            return doc
-        _spend(repo, player_id, COSMETICS[item_id][1], earned, {"cosmetics_owned": {"$ne": item_id}},
-               {"$addToSet": {"cosmetics_owned": item_id}})
-    else:
-        raise LoopError("Unknown item.")
+            return None
+        return (COSMETICS[item_id][1], {"cosmetics_owned": {"$ne": item_id}},
+                {"$addToSet": {"cosmetics_owned": item_id}}, [])
+    raise LoopError("Unknown item.")
+
+
+def buy(repo, player_id: str, item_id: str) -> dict[str, Any]:
+    """Stall, online: buy anything with stars right now (atomic). The game itself buys
+    offline through the run's markers (apply_stall_markers); this stays for other callers."""
+    doc = sync_with_run_state(repo, player_id)
+    res = _purchase(doc, item_id)
+    if res is None:
+        return doc
+    cost, guard, update, fill = res
+    spent = 0 if doc.get("current_finished") else int(doc.get("stall_spent_loop") or 0)
+    _spend(repo, player_id, cost, run_stars(repo, player_id, doc) - spent, guard, update)
+    if fill:
+        _fill_pockets(repo, player_id, fill)
     return get(repo, player_id)
+
+
+BUY_PREFIX, USE_PREFIX, EQUIP_PREFIX = "sb:", "su:", "se:"
+
+
+def _equip_update(doc: dict[str, Any], slot: str, item_id: str) -> dict[str, Any]:
+    """The change for wearing / showing a cosmetic (shared by equip() and the markers)."""
+    item_id = str(item_id or "")
+    if slot == "home":
+        if item_id not in COSMETICS or COSMETICS[item_id][0] != "home":
+            raise LoopError("Unknown item.")
+        if item_id not in _list(doc, "cosmetics_owned"):
+            raise LoopError("Buy it first.")
+        home = list((doc.get("equipped") or {}).get("home") or [])
+        home = [h for h in home if h != item_id] if item_id in home else home + [item_id]
+        return {"$set": {"equipped.home": home}}
+    if slot not in EQUIP_SLOTS:
+        raise LoopError("Unknown slot.")
+    if item_id:
+        if item_id not in COSMETICS or COSMETICS[item_id][0] != slot:
+            raise LoopError("Unknown item.")
+        if item_id not in _list(doc, "cosmetics_owned"):
+            raise LoopError("Buy it first.")
+    return {"$set": {f"equipped.{slot}": item_id}}
+
+
+def apply_stall_markers(repo, player_id: str, state: dict[str, Any] | None) -> bool:
+    """Applies the stall actions the game saved offline in this run's progress ids, in order,
+    each once. One that doesn't pass the checks (or can't be afforded) is skipped and never
+    retried. Returns True when anything was applied."""
+    if not state:
+        return False
+    ids = [str(m) for m in dict.fromkeys(state.get("completed_quest_ids") or [])
+           if str(m).startswith((BUY_PREFIX, USE_PREFIX, EQUIP_PREFIX))]
+    doc = get(repo, player_id)
+    if doc.get("current_finished"):
+        return False
+    applied = set(_list(doc, "stall_applied"))
+    todo = [m for m in ids if m not in applied]
+    if not todo:
+        return False
+    balance = int(doc.get("stars") or 0) + _state_stars(state, doc) - int(doc.get("stall_spent_loop") or 0)
+    for m in todo:
+        guard: dict[str, Any] = {}
+        update: dict[str, Any] = {}
+        fill: list[str] = []
+        try:
+            if m.startswith(BUY_PREFIX):
+                res = _purchase(doc, m[len(BUY_PREFIX):])
+                if res is not None:
+                    cost, guard, update, fill = res
+                    if cost > balance:
+                        raise LoopError("Not enough stars.")
+                    update = {k: dict(v) for k, v in update.items()}
+                    update.setdefault("$inc", {})["stall_spent_loop"] = cost
+                    balance -= cost
+            elif m.startswith(USE_PREFIX):
+                h = m[len(USE_PREFIX):]
+                if h not in HELPERS or h not in _list(doc, "helpers_held") or h in _list(doc, "helpers_used_loop"):
+                    raise LoopError("You don't have that helper.")
+                guard = {"helpers_held": h}
+                update = {"$pull": {"helpers_held": h}, "$addToSet": {"helpers_used_loop": h}}
+            else:
+                parts = m.split(":", 3)
+                if len(parts) != 4:
+                    raise LoopError("Bad marker.")
+                update = _equip_update(doc, parts[2], parts[3])
+        except LoopError:
+            guard, update, fill = {}, {}, []
+        update = {k: dict(v) for k, v in update.items()}
+        update.setdefault("$addToSet", {})["stall_applied"] = m
+        update.setdefault("$set", {})["updated_at"] = datetime.utcnow()
+        result = repo.player_loop_meta.update_one(
+            {"player_id": player_id, "stall_applied": {"$ne": m}, **guard}, update)
+        if result.matched_count == 0:
+            # the guard failed (e.g. bought meanwhile) or another sync got here first
+            repo.player_loop_meta.update_one({"player_id": player_id}, {"$addToSet": {"stall_applied": m}})
+        elif fill:
+            _fill_pockets(repo, player_id, fill)
+        doc = get(repo, player_id)
+    return True
 
 
 def use_helper(repo, player_id: str, helper_id: str) -> dict[str, Any]:
@@ -662,30 +772,11 @@ def use_helper(repo, player_id: str, helper_id: str) -> dict[str, Any]:
     return get(repo, player_id)
 
 
-EQUIP_SLOTS = ("outfit", "hat", "trail", "pet")
-
-
 def equip(repo, player_id: str, slot: str, item_id: str) -> dict[str, Any]:
-    """Wears / shows an owned cosmetic (empty item = take it off). Home add-ons toggle."""
+    """Online: wears / shows an owned cosmetic (empty item = take it off). Home add-ons
+    toggle. The game itself equips offline through "se:" markers."""
     doc = get(repo, player_id)
-    item_id = str(item_id or "")
-    if slot == "home":
-        if item_id not in COSMETICS or COSMETICS[item_id][0] != "home":
-            raise LoopError("Unknown item.")
-        if item_id not in _list(doc, "cosmetics_owned"):
-            raise LoopError("Buy it first.")
-        home = list((doc.get("equipped") or {}).get("home") or [])
-        home = [h for h in home if h != item_id] if item_id in home else home + [item_id]
-        repo.player_loop_meta.update_one({"player_id": player_id}, {"$set": {"equipped.home": home}})
-        return get(repo, player_id)
-    if slot not in EQUIP_SLOTS:
-        raise LoopError("Unknown slot.")
-    if item_id:
-        if item_id not in COSMETICS or COSMETICS[item_id][0] != slot:
-            raise LoopError("Unknown item.")
-        if item_id not in _list(doc, "cosmetics_owned"):
-            raise LoopError("Buy it first.")
-    repo.player_loop_meta.update_one({"player_id": player_id}, {"$set": {f"equipped.{slot}": item_id}})
+    repo.player_loop_meta.update_one({"player_id": player_id}, _equip_update(doc, slot, item_id))
     return get(repo, player_id)
 
 
@@ -738,6 +829,8 @@ def begin_loop(repo, player_id: str, kept_skills: list[str], carried_ids: list[s
             "loop_start_owned": owned,         # owned before this loop (for Lv2 unlocks)
             "helpers_bought_loop": [],
             "helpers_used_loop": [],
+            "stall_applied": [],
+            "stall_spent_loop": 0,
             "updated_at": datetime.utcnow(),
         }},
     )

@@ -481,6 +481,7 @@ class LoopMetaOut(BaseModel):
     cosmetics_owned: list[str] = Field(default_factory=list)
     equipped: LoopEquippedOut = Field(default_factory=LoopEquippedOut)
     stars: int = 0                                               # stars the stall can spend
+    bank_stars: int = 0                                          # the bank alone (changes only at a loop's end)
     shop: list[LoopShopItem] = Field(default_factory=list)
     memory_slots: int = 3
     history: list[LoopHistoryItem] = Field(default_factory=list)

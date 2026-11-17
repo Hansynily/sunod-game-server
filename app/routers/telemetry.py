@@ -1989,6 +1989,7 @@ def _loop_meta_out(doc: dict[str, Any], message: str = "", stars: int | None = N
             trail=str(eq.get("trail") or ""), pet=str(eq.get("pet") or ""),
             home=[str(h) for h in eq.get("home") or []]),
         stars=int(doc.get("stars") or 0) if stars is None else stars,
+        bank_stars=int(doc.get("stars") or 0),
         shop=_shop_out(),
         memory_slots=loop_meta.memory_slots(bag),
         history=history,
