@@ -1934,6 +1934,7 @@ def _shop_out() -> list[schemas.LoopShopItem]:
     items = [schemas.LoopShopItem(id=k, cost=v[1], type="keepsake", lv2_cost=v[2]) for k, v in loop_meta.MEMENTOS.items()]
     items += [schemas.LoopShopItem(id=k, cost=0, type="event") for k in loop_meta.EVENT_MEMENTOS]
     items += [schemas.LoopShopItem(id=f"pocket{n}", cost=c, type="pocket") for n, c in loop_meta.POCKET_PRICES.items()]
+    items += [schemas.LoopShopItem(id="board", cost=loop_meta.BOARD_PRICE, type="upgrade")]
     items += [schemas.LoopShopItem(id=k, cost=c, type="helper") for k, c in loop_meta.HELPERS.items()]
     items += [schemas.LoopShopItem(id=k, cost=c, type=t) for k, (t, c) in loop_meta.COSMETICS.items()]
     return items
@@ -1976,6 +1977,7 @@ def _loop_meta_out(doc: dict[str, Any], message: str = "", stars: int | None = N
         carried_mementos=bag,
         pockets=loop_meta.pockets(doc),
         max_pockets=loop_meta.MAX_POCKETS,
+        board_unlocked=bool(doc.get("board_unlocked")),
         lv2_unlocked=[str(m) for m in doc.get("lv2_unlocked") or []],
         lv2_owned=[str(m) for m in doc.get("lv2_owned") or []],
         events_joined=[str(m) for m in doc.get("events_joined") or []],

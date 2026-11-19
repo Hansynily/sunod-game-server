@@ -447,7 +447,7 @@ class LoopPathsOut(BaseModel):
 class LoopShopItem(BaseModel):
     id: str
     cost: int
-    type: str = "keepsake"      # keepsake | event | pocket | helper | outfit | hat | trail | pet | home
+    type: str = "keepsake"      # keepsake | event | pocket | upgrade | helper | outfit | hat | trail | pet | home
     lv2_cost: int = 0           # keepsakes: price of the friendship upgrade
 
 
@@ -471,6 +471,7 @@ class LoopMetaOut(BaseModel):
     carried_mementos: list[str] = Field(default_factory=list)    # in the pockets this loop: only these work
     pockets: int = 2
     max_pockets: int = 4
+    board_unlocked: bool = False                                 # plaza board Requests + Journal (stall upgrade)
     lv2_unlocked: list[str] = Field(default_factory=list)        # friendship upgrade can be bought
     lv2_owned: list[str] = Field(default_factory=list)
     events_joined: list[str] = Field(default_factory=list)       # RIASEC letters of town events joined (all loops)

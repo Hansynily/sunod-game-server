@@ -74,12 +74,11 @@ MAX_POCKETS = 4
 
 # ── The stall's other goods ──────────────────────────────────────────────────
 POCKET_PRICES = {3: 100, 4: 200}        # the 3rd pocket, then the 4th
+BOARD_PRICE = 120                       # the plaza board's Requests tab + the Journal (kept forever)
 HELPERS = {"reroll": 15, "luckycard": 25, "studynotes": 30}   # one-use, max 1 each per loop
 COSMETICS = {
     # for you: outfits (palette swaps) and hats (an overlay that follows the frames)
     "outfit_elem": ("outfit", 30),      # Elementary uniform
-    "outfit_hs": ("outfit", 30),        # High School uniform
-    "outfit_college": ("outfit", 40),   # College uniform
     "outfit_fiesta": ("outfit", 60),    # barong (boy) / Filipiniana (girl)
     "outfit_raincoat": ("outfit", 40),  # threat gear
     "outfit_farmer": ("outfit", 40),    # camisa de chino + rolled pants
@@ -277,6 +276,7 @@ def _new_doc(player_id: str) -> dict[str, Any]:
         "owned_mementos": [],
         "carried_mementos": [],
         "pockets": BASE_POCKETS,
+        "board_unlocked": False,
         "stall_applied": [],
         "stall_spent_loop": 0,
         "lv2_unlocked": [],
@@ -643,6 +643,10 @@ def _purchase(doc: dict[str, Any], item_id: str):
         # a pocket bought mid-loop holds a keepsake that was left at home
         rest = [m for m in _list(doc, "owned_mementos") if m not in carried(doc)]
         return POCKET_PRICES[want], guard, {"$set": {"pockets": want}}, rest[:1]
+    if item_id == "board":
+        if doc.get("board_unlocked"):
+            return None
+        return BOARD_PRICE, {"board_unlocked": {"$ne": True}}, {"$set": {"board_unlocked": True}}, []
     if item_id in HELPERS:
         if item_id in _list(doc, "helpers_held"):
             raise LoopError("You already have one.")
@@ -679,13 +683,15 @@ BUY_PREFIX, USE_PREFIX, EQUIP_PREFIX = "sb:", "su:", "se:"
 def _equip_update(doc: dict[str, Any], slot: str, item_id: str) -> dict[str, Any]:
     """The change for wearing / showing a cosmetic (shared by equip() and the markers)."""
     item_id = str(item_id or "")
-    if slot == "home":
+    if slot in ("home", "homeon", "homeoff"):
         if item_id not in COSMETICS or COSMETICS[item_id][0] != "home":
             raise LoopError("Unknown item.")
         if item_id not in _list(doc, "cosmetics_owned"):
             raise LoopError("Buy it first.")
         home = list((doc.get("equipped") or {}).get("home") or [])
-        home = [h for h in home if h != item_id] if item_id in home else home + [item_id]
+        # "homeon" / "homeoff" (what the game saves) are absolute; "home" toggles (older callers)
+        on = (item_id not in home) if slot == "home" else (slot == "homeon")
+        home = [h for h in home if h != item_id] + ([item_id] if on else [])
         return {"$set": {"equipped.home": home}}
     if slot not in EQUIP_SLOTS:
         raise LoopError("Unknown slot.")
