@@ -68,6 +68,8 @@ EVENT_LETTERS = {
 ALL_MEMENTOS = list(MEMENTOS) + EVENT_MEMENTOS
 
 EQUIP_SLOTS = ("outfit", "hat", "trail", "pet")
+# school uniforms: free, never sold; the game unlocks them by reaching that school in the loop
+STAGE_UNIFORMS = ("outfit_hs", "outfit_college")
 BASE_MEMORY_SLOTS = 3
 BASE_POCKETS = 2
 MAX_POCKETS = 4
@@ -695,6 +697,8 @@ def _equip_update(doc: dict[str, Any], slot: str, item_id: str) -> dict[str, Any
         return {"$set": {"equipped.home": home}}
     if slot not in EQUIP_SLOTS:
         raise LoopError("Unknown slot.")
+    if slot == "outfit" and item_id in STAGE_UNIFORMS:
+        return {"$set": {"equipped.outfit": item_id}}
     if item_id:
         if item_id not in COSMETICS or COSMETICS[item_id][0] != slot:
             raise LoopError("Unknown item.")
@@ -831,6 +835,8 @@ def begin_loop(repo, player_id: str, kept_skills: list[str], carried_ids: list[s
             "kept_skill_xp": kept_xp,
             "faded_skill_xp": faded_xp,
             "carried_mementos": bag,
+            # a new childhood: school uniforms come off until you reach that school again
+            **({"equipped.outfit": ""} if (doc.get("equipped") or {}).get("outfit") in STAGE_UNIFORMS else {}),
             "loop_start_mementos": bag,        # what this loop carried (for the run label)
             "loop_start_owned": owned,         # owned before this loop (for Lv2 unlocks)
             "helpers_bought_loop": [],
