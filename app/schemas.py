@@ -511,6 +511,10 @@ class LoopShopBuyIn(BaseModel):
     item_id: str = Field(..., min_length=1, max_length=40)
 
 
+class LoopDebugStarsIn(BaseModel):
+    stars: int = Field(..., ge=0, le=1_000_000)
+
+
 class LoopHelperIn(BaseModel):
     helper_id: str = Field(..., min_length=1, max_length=40)
 

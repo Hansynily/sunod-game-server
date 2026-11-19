@@ -2069,6 +2069,18 @@ def buy_from_stall(
     return _loop_meta_out(doc, stars=loop_meta.available_stars(db, current_user.player_id, doc))
 
 
+@router.post("/users/me/loop/debug/stars", response_model=schemas.LoopMetaOut)
+def debug_set_my_stars(
+    payload: schemas.LoopDebugStarsIn,
+    current_user = Depends(require_admin),
+    db: TelemetryRepository = Depends(get_db),
+):
+    """Admin debug tool (game debug panel): set how many stars the stall can spend."""
+    doc = loop_meta.debug_set_stars(db, current_user.player_id, payload.stars)
+    audit_log("LOOP_DEBUG_STARS", player_id=current_user.player_id, username=current_user.username, stars=payload.stars)
+    return _loop_meta_out(doc, stars=loop_meta.available_stars(db, current_user.player_id, doc))
+
+
 @router.post("/users/me/loop/helper/use", response_model=schemas.LoopMetaOut)
 def use_stall_helper(
     payload: schemas.LoopHelperIn,

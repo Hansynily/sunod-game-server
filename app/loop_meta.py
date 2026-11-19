@@ -69,7 +69,7 @@ ALL_MEMENTOS = list(MEMENTOS) + EVENT_MEMENTOS
 
 EQUIP_SLOTS = ("outfit", "hat", "trail", "pet")
 # school uniforms: free, never sold; the game unlocks them by reaching that school in the loop
-STAGE_UNIFORMS = ("outfit_hs", "outfit_college")
+STAGE_UNIFORMS = ("outfit_elem", "outfit_hs", "outfit_college")
 BASE_MEMORY_SLOTS = 3
 BASE_POCKETS = 2
 MAX_POCKETS = 4
@@ -80,7 +80,6 @@ BOARD_PRICE = 120                       # the plaza board's Requests tab + the J
 HELPERS = {"reroll": 15, "luckycard": 25, "studynotes": 30}   # one-use, max 1 each per loop
 COSMETICS = {
     # for you: outfits (palette swaps) and hats (an overlay that follows the frames)
-    "outfit_elem": ("outfit", 30),      # Elementary uniform
     "outfit_fiesta": ("outfit", 60),    # barong (boy) / Filipiniana (girl)
     "outfit_raincoat": ("outfit", 40),  # threat gear
     "outfit_farmer": ("outfit", 40),    # camisa de chino + rolled pants
@@ -762,6 +761,17 @@ def apply_stall_markers(repo, player_id: str, state: dict[str, Any] | None) -> b
             _fill_pockets(repo, player_id, fill)
         doc = get(repo, player_id)
     return True
+
+
+def debug_set_stars(repo, player_id: str, stars: int) -> dict[str, Any]:
+    """Admin debug tool: the stall shows exactly this many stars. Sets the bank so that bank +
+    this loop's stars - what the stall spent this loop = `stars`."""
+    doc = sync_with_run_state(repo, player_id)
+    now_available = available_stars(repo, player_id, doc)
+    bank = int(doc.get("stars") or 0) + max(0, int(stars)) - now_available
+    repo.player_loop_meta.update_one({"player_id": player_id},
+                                     {"$set": {"stars": bank, "updated_at": datetime.utcnow()}})
+    return get(repo, player_id)
 
 
 def use_helper(repo, player_id: str, helper_id: str) -> dict[str, Any]:
